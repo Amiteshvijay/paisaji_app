@@ -1,0 +1,23 @@
+  Future<void> _routeUnauthenticated() async {
+    final storage = ref.read(secureStorageProvider);
+    final lastMobile = await storage.getLastMobileNumber();
+    final isMpinSet = await storage.getIsMpinSet();
+
+    if (!mounted) return;
+
+    if (lastMobile != null && lastMobile.isNotEmpty && isMpinSet == true) {
+      context.go('/auth/mpin-login', extra: lastMobile);
+      return;
+    }
+
+    final onboardingRepo = ref.read(onboardingRepositoryProvider);
+    final isCompleted = await onboardingRepo.isOnboardingCompleted();
+
+    if (!mounted) return;
+
+    if (isCompleted) {
+      context.go('/auth/login');
+    } else {
+      context.go('/onboarding');
+    }
+  }

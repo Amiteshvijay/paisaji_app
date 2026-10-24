@@ -1,0 +1,6 @@
+flutter:
+  assets:
+    - assets/branding/paisaji_primary.png
+    - assets/branding/paisaji_wordmark.png
+    - assets/branding/paisaji_stacked.png
+    - assets/branding/paisaji_monogram.png

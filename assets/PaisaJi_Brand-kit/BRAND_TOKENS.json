@@ -1,0 +1,23 @@
+{
+  "brand": "Paisaजी",
+  "brand_name": "PaisaJi",
+  "logo_style": "Official Unified Brand Identity (No Tagline)",
+  "colors": {
+    "navy": "#0A2342",
+    "brightBlue": "#007BFF",
+    "background": "#FFFFFF",
+    "darkBackground": "#0B0F19"
+  },
+  "assets": {
+    "primary": "assets/branding/paisaji_primary.png",
+    "wordmark": "assets/branding/paisaji_wordmark.png",
+    "stacked": "assets/branding/paisaji_stacked.png",
+    "monogram": "assets/branding/paisaji_monogram.png",
+    "white_darkbg": "assets/branding/paisaji_white_darkbg.png",
+    "primary_white": "assets/branding/paisaji_primary_white.png",
+    "monochrome_black": "assets/branding/paisaji_monochrome_black.png",
+    "monochrome_white": "assets/branding/paisaji_monochrome_white.png"
+  },
+  "wordmark_language": "English Paisa + Hindi जी",
+  "tagline": "none"
+}
