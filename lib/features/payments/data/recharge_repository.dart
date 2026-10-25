@@ -82,8 +82,11 @@ class RechargeRepository {
         return response.data['data'] as Map<String, dynamic>;
       }
       throw Exception(response.data['error']?['message'] ?? 'Failed to execute recharge order');
+    } on DioException catch (dioErr) {
+      final msg = dioErr.response?.data?['error']?['message'] ?? dioErr.response?.data?['message'] ?? dioErr.message;
+      throw Exception(msg ?? 'Recharge network error');
     } catch (e) {
-      throw Exception('Recharge error: ');
+      throw Exception('Recharge error: $e');
     }
   }
 

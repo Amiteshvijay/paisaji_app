@@ -491,7 +491,11 @@ class _PaymentSuccessScreenState extends ConsumerState<PaymentSuccessScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   side: const BorderSide(color: AppTheme.border),
                 ),
-                onPressed: () => context.push('/payment/receipt'),
+                onPressed: () => context.push('/payment/receipt', extra: {
+                  'title': widget.title,
+                  'amount': widget.amount,
+                  'reference': widget.reference,
+                }),
                 child: const Text('View Receipt', style: TextStyle(color: AppTheme.primaryText, fontWeight: FontWeight.w600)),
               ),
               const SizedBox(height: 12),

@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zeokash/features/payments/data/recharge_repository.dart';
 
 // State to hold selected mobile number and detected operator details
@@ -53,4 +53,10 @@ final rechargePlansProvider = FutureProvider.autoDispose<List<dynamic>>((ref) as
   if (state.operatorCode.isEmpty) return [];
   
   return await repo.getPlans(state.operatorCode, state.circle);
+});
+
+// Auto-disposing, user-scoped provider to fetch real recharge transactions for authenticated user
+final userRechargeHistoryProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
+  final repo = ref.read(rechargeRepositoryProvider);
+  return await repo.getRechargeHistory();
 });

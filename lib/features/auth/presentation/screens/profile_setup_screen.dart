@@ -17,10 +17,10 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
 
 class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _nameController = TextEditingController();
+  final _cityController = TextEditingController();
   final _dobController = TextEditingController();
   
   String? _selectedSex;
-  String? _selectedEmploymentType;
   bool _isLoading = false;
 
   final List<Map<String, String>> _sexOptions = [
@@ -28,14 +28,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     {'label': 'Female', 'value': 'FEMALE'},
     {'label': 'Other', 'value': 'OTHER'},
     {'label': 'Prefer Not To Say', 'value': 'PREFER_NOT_TO_SAY'},
-  ];
-
-  final List<Map<String, String>> _employmentOptions = [
-    {'label': 'Salaried', 'value': 'SALARIED'},
-    {'label': 'Self-Employed', 'value': 'SELF_EMPLOYED'},
-    {'label': 'Business', 'value': 'BUSINESS'},
-    {'label': 'Student', 'value': 'STUDENT'},
-    {'label': 'Other', 'value': 'OTHER'},
   ];
 
   Future<void> _selectDob(BuildContext context) async {
@@ -58,12 +50,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   Future<void> _completeSetup() async {
     final name = _nameController.text.trim();
+    final city = _cityController.text.trim();
     final dob = _dobController.text.trim();
 
-    if (name.isEmpty || dob.isEmpty || _selectedSex == null || _selectedEmploymentType == null) {
+    if (name.isEmpty || city.isEmpty || dob.isEmpty || _selectedSex == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill out all required profile details'),
+          content: Text('Please fill out Name, Gender, DOB, and City'),
           backgroundColor: AppTheme.error,
         ),
       );
@@ -75,9 +68,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       final profileRepo = ref.read(profileRepositoryProvider);
       await profileRepo.completeOnboarding({
         'full_name': name,
+        'city': city,
         'sex': _selectedSex,
         'dob': dob,
-        'employment_type': _selectedEmploymentType,
       });
       await ref.read(secureStorageProvider).saveFullName(name);
 
@@ -198,26 +191,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text('Employment Type', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.secondaryText)),
+                    const Text('City', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.secondaryText)),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedEmploymentType,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: AppTheme.background,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.border)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.border)),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 2)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      hint: const Text('Select employment type'),
-                      items: _employmentOptions.map((opt) {
-                        return DropdownMenuItem<String>(
-                          value: opt['value'],
-                          child: Text(opt['label']!),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedEmploymentType = val),
+                    CustomTextField(
+                      controller: _cityController,
+                      hintText: 'Enter your city',
                     ),
                   ],
                 ),

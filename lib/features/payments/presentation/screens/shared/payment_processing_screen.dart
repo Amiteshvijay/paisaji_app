@@ -96,7 +96,8 @@ class _PaymentProcessingScreenState extends ConsumerState<PaymentProcessingScree
         }
       } catch (e) {
         debugPrint('Recharge backend execution error: $e');
-        // If network error occurred, still report for history polling
+        isRechargeSuccess = false;
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
       }
     }
 

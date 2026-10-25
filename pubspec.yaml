@@ -1,4 +1,4 @@
-name: zeokash
+﻿name: zeokash
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -58,7 +58,6 @@ dependencies:
   geocoding: ^5.0.0
   share_plus: ^13.3.1
   path_provider: ^2.1.5
-  sms_autofill: ^2.6.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

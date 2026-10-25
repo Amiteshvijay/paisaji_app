@@ -781,11 +781,14 @@ GoRouter _buildRouter({Ref? ref, Listenable? refreshListenable}) => GoRouter(
     GoRoute(
       path: '/payment/receipt',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const ReceiptScreen(
-        title: 'Payment',
-        amount: 500.0,
-        reference: 'ZK12345678',
-      ),
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return ReceiptScreen(
+          title: extra['title'] ?? 'Payment',
+          amount: (extra['amount'] is num) ? (extra['amount'] as num).toDouble() : double.tryParse(extra['amount']?.toString() ?? '') ?? 0.0,
+          reference: extra['reference'] ?? 'ZK12345678',
+        );
+      },
     ),
 
     // Recharge Flows

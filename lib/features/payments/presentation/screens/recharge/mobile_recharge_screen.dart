@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zeokash/core/services/contacts_service.dart';
@@ -21,6 +21,8 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
   String? _selectedOperator;
   String? _selectedCircle;
   bool _useZeoCoins = true;
+  bool _userManuallySelectedOperator = false;
+  bool _userManuallySelectedCircle = false;
 
   final List<String> _operators = ['Airtel', 'Jio', 'Vi', 'BSNL', 'MTNL'];
   final List<String> _circles = [
@@ -110,6 +112,21 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
   bool get _isJio => (_selectedOperator ?? '').toLowerCase().contains('jio');
   bool get _isJioUnderMin => _isJio && _enteredAmount > 0 && _enteredAmount < 349;
 
+  /// Helper to mask phone numbers securely: e.g. 9661665549 -> 9661â€¢â€¢â€¢â€¢49
+
+
+  /// Helper to format ISO dates to concise readable string
+  static String _formatRechargeDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
+    } catch (_) {
+      return raw.split('T').first;
+    }
+  }
+
   void _onPhoneChanged(String val) async {
     final clean = val.replaceAll(RegExp(r'\D'), '');
     if (clean.length == 10) {
@@ -118,10 +135,13 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
         final detected = await repo.detectOperator(clean);
         if (detected.isNotEmpty && mounted) {
           setState(() {
-            if (detected['operator_name'] != null) {
+            // Auto-detect is a convenience suggestion only.
+            // If the user manually edited/selected an operator or circle (e.g. MNP ported number),
+            // the user's manual selection is always final and never overridden.
+            if (!_userManuallySelectedOperator && detected['operator_name'] != null) {
               _selectedOperator = _matchOperator(detected['operator_name'].toString());
             }
-            if (detected['circle'] != null) {
+            if (!_userManuallySelectedCircle && detected['circle'] != null) {
               _selectedCircle = _matchCircle(detected['circle'].toString());
             }
           });
@@ -184,18 +204,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
     }
   }
 
-  void _showAllRecentRechargesModal() {
-    final allRecentRecharges = [
-      {'name': 'Amitesh Tiwari', 'number': '9661665549', 'op': 'Jio', 'date': '12 Aug 2026', 'amount': 299},
-      {'name': 'Sweety', 'number': '7033523122', 'op': 'Airtel', 'date': '05 Aug 2026', 'amount': 479},
-      {'name': 'Family Recharge', 'number': '7541923279', 'op': 'Vi', 'date': '20 Jul 2026', 'amount': 719},
-      {'name': 'Aunty Ji', 'number': '8789051223', 'op': 'Jio', 'date': '10 Jun 2026', 'amount': 299},
-      {'name': 'Sidheswar', 'number': '9639630903', 'op': 'Airtel', 'date': '15 May 2026', 'amount': 839},
-      {'name': 'Mom', 'number': '9876543210', 'op': 'Airtel', 'date': '02 Mar 2026', 'amount': 299},
-      {'name': 'Brother', 'number': '9123456789', 'op': 'Jio', 'date': '14 Jan 2026', 'amount': 666},
-      {'name': 'Friend', 'number': '9988776655', 'op': 'Vi', 'date': '20 Nov 2025', 'amount': 479},
-    ];
-
+  void _showAllRecentRechargesModal(List<dynamic> allRecentRecharges) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -214,49 +223,103 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Recent Recharges (Past 1 Year)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
+                  const Text('Recharge History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
                   IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                 ],
               ),
               const SizedBox(height: 8),
-              const Text('History of all successful mobile recharges in the last 12 months:', style: TextStyle(color: AppTheme.secondaryText, fontSize: 13)),
+              const Text('Your authenticated recharge transaction history:', style: TextStyle(color: AppTheme.secondaryText, fontSize: 13)),
               const SizedBox(height: 16),
-              Expanded(
-                child: ListView.separated(
-                  controller: scrollController,
-                  itemCount: allRecentRecharges.length,
-                  separatorBuilder: (context, index) => const Divider(color: AppTheme.border, height: 1),
-                  itemBuilder: (context, index) {
-                    final item = allRecentRecharges[index];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                        child: Text(item['name'].toString()[0], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-                      ),
-                      title: Text(item['name'].toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                      subtitle: Text('${item['number']} • ${item['op']} • ${item['date']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppTheme.secondaryText, fontSize: 12)),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('₹${item['amount']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryNavy)),
-                          const SizedBox(height: 2),
-                          const Text('Success', style: TextStyle(color: AppTheme.success, fontSize: 11, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        setState(() {
-                          _phoneController.text = item['number'].toString();
-                          _selectedOperator = _matchOperator(item['op'].toString());
-                          _amountController.text = item['amount'].toString();
-                        });
-                      },
-                    );
-                  },
+              if (allRecentRecharges.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.history_rounded, size: 54, color: Colors.grey.shade400),
+                        const SizedBox(height: 12),
+                        const Text('No Recent Recharges', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy)),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Your recharge history will appear here once you make your first recharge.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppTheme.secondaryText, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollController,
+                    itemCount: allRecentRecharges.length,
+                    separatorBuilder: (context, index) => const Divider(color: AppTheme.border, height: 1),
+                    itemBuilder: (context, index) {
+                      final item = allRecentRecharges[index] as Map<String, dynamic>;
+                      final number = item['mobile_number']?.toString() ?? '';
+                      final op = item['operator_name']?.toString() ?? item['operator_code']?.toString() ?? 'Mobile';
+                      final date = _formatRechargeDate(item['created_at']?.toString());
+                      final amt = item['amount']?.toString() ?? '0';
+                      final statusStr = (item['status']?.toString() ?? 'SUCCESS').toUpperCase();
+                      final isSuccess = statusStr == 'SUCCESS';
+                      final isPending = statusStr.contains('PENDING');
+
+                      Color statusColor = AppTheme.success;
+                      if (isPending) statusColor = Colors.orange;
+                      if (!isSuccess && !isPending) statusColor = AppTheme.error;
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                          child: Text(
+                            op.isNotEmpty ? op[0].toUpperCase() : 'R',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                          ),
+                        ),
+                        title: Text(
+                          number,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                        ),
+                        subtitle: Text(
+                          '$op â€¢ $date',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppTheme.secondaryText, fontSize: 12),
+                        ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'â‚¹$amt',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryNavy),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              statusStr,
+                              style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          setState(() {
+                            _phoneController.text = number;
+                            _selectedOperator = _matchOperator(op);
+                            final parsedAmt = double.tryParse(amt);
+                            if (parsedAmt != null && parsedAmt > 0) {
+                              _amountController.text = parsedAmt.toInt().toString();
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -285,7 +348,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
     if (_isJio && amt < 349) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Jio mobile recharge will be done for ₹349 or more. Less than ₹349 recharge is not available.'),
+          content: Text('Jio mobile recharge will be done for â‚¹349 or more. Less than â‚¹349 recharge is not available.'),
           backgroundColor: Color(0xFFDC2626),
           duration: Duration(seconds: 3),
         ),
@@ -293,11 +356,16 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
       return;
     }
 
-    final op = _selectedOperator ?? 'Airtel';
+    if (_selectedOperator == null || _selectedOperator!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select an operator')),
+      );
+      return;
+    }
+    final op = _selectedOperator!;
     final cir = _selectedCircle ?? 'Haryana';
 
     final instantDiscount = amt * _getDiscountRate(op);
-    // Applied ONLY 5% of wallet balance (not complete wallet balance)
     final maxUsableCoins = (coinBalance * 0.05);
     final maxCoinsForPlan = (amt - instantDiscount) * 10.0;
     final coinsUsed = _useZeoCoins
@@ -356,107 +424,173 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
   }
 
   Widget _buildRecentRechargesSection() {
-    final recentList = [
-      {'name': 'Amitesh Vi...', 'number': '9661665549', 'op': 'Jio'},
-      {'name': 'sweety', 'number': '7033523122', 'op': 'Airtel'},
-      {'name': '7541923279', 'number': '7541923279', 'op': 'Vi'},
-      {'name': '8448302749', 'number': '8448302749', 'op': 'Airtel'},
-      {'name': 'Apna Famil...', 'number': '8860996616', 'op': 'Vi'},
-      {'name': 'Aunty Ji', 'number': '8789051223', 'op': 'Jio'},
-      {'name': 'SIDHESWAR ...', 'number': '9639630903', 'op': 'Airtel'},
-    ];
+    final historyAsync = ref.watch(userRechargeHistoryProvider);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Your Recent Recharges',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            TextButton(
-              onPressed: _showAllRecentRechargesModal,
-              child: const Text('Show All', style: TextStyle(color: Color(0xFF0047AB), fontWeight: FontWeight.w600)),
-            ),
-          ],
+    return historyAsync.when(
+      loading: () => const SizedBox(
+        height: 80,
+        child: Center(
+          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0047AB)),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 95,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: recentList.length + 1,
-            separatorBuilder: (context, index) => const SizedBox(width: 16),
-            itemBuilder: (context, index) {
-              if (index == recentList.length) {
-                return InkWell(
-                  onTap: _showAllRecentRechargesModal,
-                  borderRadius: BorderRadius.circular(30),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF0047AB), width: 2),
-                        ),
-                        child: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF0047AB)),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text('Show All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0047AB))),
-                    ],
+      ),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (historyList) {
+        // Empty state when user has no recharge history
+        if (historyList.isEmpty) {
+          return Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                );
-              }
-              final item = recentList[index];
-              return InkWell(
-                onTap: () {
-                  setState(() {
-                    _phoneController.text = item['number']!;
-                    _selectedOperator = _matchOperator(item['op']);
-                  });
-                },
-                borderRadius: BorderRadius.circular(30),
-                child: SizedBox(
-                  width: 72,
+                  child: const Icon(Icons.history_toggle_off_rounded, color: Color(0xFF64748B), size: 24),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        radius: 26,
-                        backgroundColor: const Color(0xFFF1F5F9),
-                        child: Text(
-                          item['name']![0].toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0047AB)),
+                      Text(
+                        'No Recent Recharges',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Color(0xFF0F172A),
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 3),
                       Text(
-                        item['name']!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                      ),
-                      Text(
-                        item['number']!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                        'Your recharge history will appear here once you make your first recharge.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                          height: 1.3,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
-        ),
-      ],
+              ],
+            ),
+          );
+        }
+
+        // Show latest 5 recharges for logged-in user
+        final top5 = historyList.take(5).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Your Recent Recharges',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => _showAllRecentRechargesModal(historyList),
+                  child: const Text('Show All', style: TextStyle(color: Color(0xFF0047AB), fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 100,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: top5.length + 1,
+                separatorBuilder: (context, index) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  if (index == top5.length) {
+                    return InkWell(
+                      onTap: () => _showAllRecentRechargesModal(historyList),
+                      borderRadius: BorderRadius.circular(30),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0xFF0047AB), width: 2),
+                            ),
+                            child: const Icon(Icons.arrow_forward_rounded, color: Color(0xFF0047AB)),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text('Show All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0047AB))),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final item = top5[index] as Map<String, dynamic>;
+                  final number = item['mobile_number']?.toString() ?? '';
+                  final op = item['operator_name']?.toString() ?? item['operator_code']?.toString() ?? 'Recharge';
+                  final amt = item['amount']?.toString() ?? '';
+
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _phoneController.text = number;
+                        _selectedOperator = _matchOperator(op);
+                        final parsedAmt = double.tryParse(amt);
+                        if (parsedAmt != null && parsedAmt > 0) {
+                          _amountController.text = parsedAmt.toInt().toString();
+                        }
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(30),
+                    child: SizedBox(
+                      width: 76,
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 26,
+                            backgroundColor: const Color(0xFFF1F5F9),
+                            child: Text(
+                              op.isNotEmpty ? op[0].toUpperCase() : 'R',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0047AB)),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            op,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                          ),
+                          Text(
+                            number,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -508,7 +642,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'You won +20 G Coins • Tap to view all',
+                    'You won +20 G Coins â€¢ Tap to view all',
                     style: TextStyle(
                       fontSize: 13,
                       color: Color(0xFF64748B),
@@ -539,7 +673,6 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
     final discountRate = _getDiscountRate(_selectedOperator);
     final instantDiscount = amt * discountRate;
 
-    // Applied ONLY 5% of wallet balance (not complete wallet balance)
     final maxUsableCoins = (coinBalance * 0.05);
     final maxCoinsForPlan = (amt - instantDiscount) * 10.0;
     final coinsUsed = _useZeoCoins
@@ -656,14 +789,43 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
               ),
               const SizedBox(height: 20),
 
-              // 2. Operator Section
-              const Text(
-                'Operator',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  color: Color(0xFF0F172A),
-                ),
+              // 2. Operator Section (User selection is final, supporting MNP)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Operator',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  if (_userManuallySelectedOperator)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_outline, size: 12, color: Color(0xFF0047AB)),
+                          SizedBox(width: 4),
+                          Text(
+                            'User Selected (MNP)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0047AB),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 8),
               Container(
@@ -719,6 +881,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                     onChanged: (val) {
                       setState(() {
                         _selectedOperator = val;
+                        _userManuallySelectedOperator = true;
                       });
                     },
                   ),
@@ -796,6 +959,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                     onChanged: (val) {
                       setState(() {
                         _selectedCircle = val;
+                        _userManuallySelectedCircle = true;
                       });
                     },
                   ),
@@ -872,7 +1036,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Jio recharges below ₹349 are not available. Please choose ₹349 or higher.',
+                        'Jio recharges below â‚¹349 are not available. Please choose â‚¹349 or higher.',
                         style: TextStyle(
                           color: Color(0xFFDC2626),
                           fontSize: 12,
@@ -890,7 +1054,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Minimum recharge for Jio is ₹349. Choose higher recharge for valid plans.',
+                        'Minimum recharge for Jio is â‚¹349. Choose higher recharge for valid plans.',
                         style: TextStyle(
                           color: Color(0xFF64748B),
                           fontSize: 12,
@@ -902,12 +1066,12 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
               ],
               const SizedBox(height: 14),
 
-              // 5. Balance Row (Without R Offers as requested)
+              // 5. Balance Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Your balance : ₹$balanceStr',
+                    'Your balance : â‚¹$balanceStr',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -918,7 +1082,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
               ),
               const SizedBox(height: 18),
 
-              // 6. ZeoCoins Redemption Card (5% Max Discount)
+              // 6. ZeoCoins Redemption Card
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 decoration: BoxDecoration(
@@ -972,7 +1136,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Balance: ${coinBalance.toStringAsFixed(0)} Coins (₹${coinInrValue.toStringAsFixed(2)}) • 5% usable',
+                            'Balance: ${coinBalance.toStringAsFixed(0)} Coins (â‚¹${coinInrValue.toStringAsFixed(2)}) â€¢ 5% usable',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFFB45309),
@@ -1037,7 +1201,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                'Save ₹${totalSavings.toStringAsFixed(2)}',
+                                'Save â‚¹${totalSavings.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   color: Color(0xFF16A34A),
                                   fontSize: 11,
@@ -1048,18 +1212,18 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildSummaryRow('Recharge Plan Amount', '₹${amt.toStringAsFixed(2)}'),
+                      _buildSummaryRow('Recharge Plan Amount', 'â‚¹${amt.toStringAsFixed(2)}'),
                       const SizedBox(height: 6),
                       _buildSummaryRow(
                         'Instant Discount (${_getDiscountPercentText(_selectedOperator)})',
-                        '-₹${instantDiscount.toStringAsFixed(2)}',
+                        '-â‚¹${instantDiscount.toStringAsFixed(2)}',
                         isDiscount: true,
                       ),
                       if (_useZeoCoins && coinDiscount > 0) ...[
                         const SizedBox(height: 6),
                         _buildSummaryRow(
-                          'G Coins Applied (${coinsUsed.toStringAsFixed(coinsUsed == coinsUsed.roundToDouble() ? 0 : 2)} Coins • 5%)',
-                          '-₹${coinDiscount.toStringAsFixed(2)}',
+                          'G Coins Applied (${coinsUsed.toStringAsFixed(coinsUsed == coinsUsed.roundToDouble() ? 0 : 2)} Coins â€¢ 5%)',
+                          '-â‚¹${coinDiscount.toStringAsFixed(2)}',
                           isDiscount: true,
                         ),
                       ],
@@ -1079,7 +1243,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                             ),
                           ),
                           Text(
-                            '₹${finalAmount.toStringAsFixed(2)}',
+                            'â‚¹${finalAmount.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
@@ -1110,7 +1274,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                   ),
                   child: Text(
                     amt > 0
-                        ? 'Recharge Now • ₹${finalAmount.toStringAsFixed(2)}'
+                        ? 'Recharge Now â€¢ â‚¹${finalAmount.toStringAsFixed(2)}'
                         : 'Recharge Now',
                     style: const TextStyle(
                       fontSize: 16,
@@ -1121,11 +1285,11 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
               ),
               const SizedBox(height: 28),
 
-              // 9. Your Recent Recharges Section (Below Recharge Now button)
+              // 9. Your Recent Recharges Section (Strictly Authenticated User Isolated)
               _buildRecentRechargesSection(),
               const SizedBox(height: 24),
 
-              // 10. Recent Rewards Banner (Renamed from Scratch Card Rewards, navigates to my-rewards)
+              // 10. Recent Rewards Banner
               _buildRecentRewardsBanner(),
               const SizedBox(height: 24),
             ],
