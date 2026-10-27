@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zeokash/core/theme/app_theme.dart';
+import 'package:zeokash/features/wallet/presentation/providers/wallet_provider.dart';
 import 'package:zeokash/shared/widgets/buttons/primary_button.dart';
 
-class PaymentReviewScreen extends StatelessWidget {
+class PaymentReviewScreen extends ConsumerWidget {
   final String title;
   final String subtitle;
   final double amount;
@@ -31,10 +33,55 @@ class PaymentReviewScreen extends StatelessWidget {
     this.serviceType,
   });
 
+  void _showInsufficientBalanceDialog(BuildContext context, double available, double needed) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.account_balance_wallet_outlined, color: Color(0xFFDC2626)),
+            SizedBox(width: 8),
+            Text('Insufficient Balance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        content: Text(
+          'Wallet must have sufficient balance to recharge amount, else recharge will not be done.\n\n'
+          'Available Balance: ₹${available.toStringAsFixed(2)}\n'
+          'Required Amount: ₹${needed.toStringAsFixed(2)}\n\n'
+          'Please first recharge your wallet and then try to recharge.',
+          style: const TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0047AB),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              context.push('/wallet/add-money');
+            },
+            child: const Text('Recharge Wallet'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final hasBreakdown = baseAmount != null && baseAmount! > 0;
     final totalSavings = (instantDiscount ?? 0.0) + (zeocoinDiscount ?? 0.0);
+
+    final walletAsync = ref.watch(walletDataProvider);
+    final availableBalance = walletAsync.asData?.value.availableBalance ?? 0.0;
+    final hasSufficientBalance = availableBalance >= amount;
 
     return Scaffold(
       appBar: AppBar(
@@ -140,29 +187,125 @@ class PaymentReviewScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppTheme.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.primaryBlue, width: 2),
+                  border: Border.all(
+                    color: hasSufficientBalance ? AppTheme.primaryBlue : const Color(0xFFDC2626),
+                    width: 2,
+                  ),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.account_balance, color: AppTheme.primaryBlue),
-                    SizedBox(width: 16),
+                    Icon(
+                      Icons.account_balance_wallet,
+                      color: hasSufficientBalance ? AppTheme.primaryBlue : const Color(0xFFDC2626),
+                    ),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('HDFC Bank', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                          Text('•••• 4321', style: TextStyle(color: AppTheme.secondaryText, fontSize: 13)),
+                          const Text('PaisaJi Secure Wallet / UPI', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Available Balance: ₹${availableBalance.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: hasSufficientBalance ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          if (subtitle.isNotEmpty)
+                            Text(subtitle, style: const TextStyle(color: AppTheme.secondaryText, fontSize: 12)),
                         ],
                       ),
                     ),
-                    Icon(Icons.check_circle, color: AppTheme.primaryBlue),
+                    Icon(
+                      hasSufficientBalance ? Icons.check_circle : Icons.error_outline,
+                      color: hasSufficientBalance ? AppTheme.primaryBlue : const Color(0xFFDC2626),
+                    ),
                   ],
                 ),
               ),
+
+              if (!hasSufficientBalance) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Insufficient Wallet Balance',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF991B1B),
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Wallet must have sufficient balance to recharge amount, else recharge will not be done.\n\nPlease first recharge your wallet (Available: ₹${availableBalance.toStringAsFixed(2)}, Required: ₹${amount.toStringAsFixed(2)}) and then try to recharge.',
+                              style: const TextStyle(
+                                color: Color(0xFF7F1D1D),
+                                fontSize: 12,
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: () => context.push('/wallet/add-money'),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDC2626),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add_circle_outline, color: Colors.white, size: 14),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Recharge Wallet Now',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               const Spacer(),
               PrimaryButton(
-                text: 'Pay ₹${amount.toStringAsFixed(2)}',
+                text: hasSufficientBalance
+                    ? 'Pay ₹${amount.toStringAsFixed(2)}'
+                    : 'Recharge Wallet to Pay ₹${amount.toStringAsFixed(2)}',
                 onPressed: () {
+                  if (!hasSufficientBalance) {
+                    _showInsufficientBalanceDialog(context, availableBalance, amount);
+                    return;
+                  }
+
                   context.pushReplacement('/payment/processing', extra: {
                     'title': title,
                     'amount': amount,

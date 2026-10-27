@@ -12,7 +12,7 @@ final bannersProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
   } catch (_) {
     return [
       {'title': 'Special Offer: 5% Cashback', 'subtitle': 'Get instant rewards on Mobile & DTH recharges today!', 'badge': 'SPECIAL OFFER'},
-      {'title': 'ZeoAI Agentic Payments', 'subtitle': 'Ask, understand, and manage everyday financial transactions instantly.', 'badge': 'NEW FEATURE'},
+      {'title': 'PaisaJi AI Assistant', 'subtitle': 'Ask, understand, and manage everyday financial transactions instantly.', 'badge': 'NEW FEATURE'},
       {'title': 'Security Update: 4-digit M-PIN', 'subtitle': 'Enhanced single-device session protection is now active.', 'badge': 'IMPORTANT NEWS'},
     ];
   }

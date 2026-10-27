@@ -14,55 +14,67 @@ class FingerprintService {
   /// Check whether physical fingerprint hardware and enrolled fingerprints are available.
   /// Strictly rejects face unlock or other biometric modalities.
   Future<bool> isFingerprintAvailable() async {
-    if (!Platform.isAndroid) return false;
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
 
     try {
-      // 1. Verify physical fingerprint hardware & enrolled prints via native Android APIs
-      final nativeStatus = await DeviceKeystoreService.getFingerprintStatus();
-      final bool hasHardware = nativeStatus['hasHardware'] == true;
-      final bool hasEnrolled = nativeStatus['hasEnrolled'] == true;
-
-      if (!hasHardware || !hasEnrolled) {
-        return false;
-      }
-
-      // 2. Query local_auth to verify biometric capabilities
+      // 1. Query local_auth capabilities
       final bool canCheck = await _localAuth.canCheckBiometrics;
       final bool isDeviceSupported = await _localAuth.isDeviceSupported();
-
-      if (!canCheck && !isDeviceSupported) {
-        return false;
-      }
-
       final List<BiometricType> available = await _localAuth.getAvailableBiometrics();
 
-      // Explicitly reject face authentication as an accepted method
+      // Explicitly reject face authentication as sole method
       final bool hasFaceOnly = available.contains(BiometricType.face) &&
           !available.contains(BiometricType.fingerprint) &&
           !available.contains(BiometricType.strong);
+      if (hasFaceOnly) return false;
 
-      if (hasFaceOnly) {
-        return false;
+      // 2. Check native keystore status
+      final nativeStatus = await DeviceKeystoreService.getFingerprintStatus();
+      final bool nativeHardware = nativeStatus['hasHardware'] == true;
+      final bool nativeEnrolled = nativeStatus['hasEnrolled'] == true;
+
+      if (nativeEnrolled) return true;
+
+      // 3. Fallback: if native hardware is detected or local_auth reports available biometrics
+      if ((nativeHardware || isDeviceSupported || canCheck) && available.isNotEmpty) {
+        return true;
       }
 
-      final bool hasFingerprint = available.contains(BiometricType.fingerprint) ||
-          available.contains(BiometricType.strong) ||
-          available.isEmpty;
-
-      return hasFingerprint && hasEnrolled;
-    } catch (_) {
       return false;
+    } catch (_) {
+      try {
+        final canCheck = await _localAuth.canCheckBiometrics;
+        final isSupported = await _localAuth.isDeviceSupported();
+        final available = await _localAuth.getAvailableBiometrics();
+        return (canCheck || isSupported) && available.isNotEmpty;
+      } catch (_) {
+        return false;
+      }
     }
   }
 
   /// Checks if fingerprint hardware exists on device, even if no fingerprints are enrolled yet.
   Future<bool> hasFingerprintHardware() async {
-    if (!Platform.isAndroid) return false;
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
     try {
+      // 1. Try native Keystore channel
       final nativeStatus = await DeviceKeystoreService.getFingerprintStatus();
-      return nativeStatus['hasHardware'] == true;
+      if (nativeStatus['hasHardware'] == true) {
+        return true;
+      }
+
+      // 2. Direct fallback to Flutter local_auth
+      final bool isDeviceSupported = await _localAuth.isDeviceSupported();
+      final bool canCheck = await _localAuth.canCheckBiometrics;
+      final List<BiometricType> available = await _localAuth.getAvailableBiometrics();
+
+      return isDeviceSupported || canCheck || available.isNotEmpty;
     } catch (_) {
-      return false;
+      try {
+        return await _localAuth.isDeviceSupported();
+      } catch (_) {
+        return false;
+      }
     }
   }
 

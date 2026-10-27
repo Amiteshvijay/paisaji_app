@@ -139,7 +139,7 @@ class _SubmitEvidenceScreenState extends ConsumerState<SubmitEvidenceScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Top-up Amount', style: GoogleFonts.outfit(color: AppTheme.secondaryText, fontSize: 13)),
-                        Text('?${widget.topup.amount.toStringAsFixed(2)}', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryNavy)),
+                        Text('₹${widget.topup.amount.toStringAsFixed(2)}', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryNavy)),
                       ],
                     ),
                     const SizedBox(height: 8),

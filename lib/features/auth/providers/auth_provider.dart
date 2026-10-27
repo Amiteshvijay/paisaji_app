@@ -1,3 +1,4 @@
+﻿import 'package:zeokash/core/services/notification_service.dart';
 import 'package:zeokash/core/services/fingerprint_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zeokash/core/storage/secure_storage.dart';
@@ -352,6 +353,7 @@ class AuthController extends Notifier<AuthState> {
     try {
       await _authRepo.verifyMpin(mpin);
       await _storage.saveLastActiveTimestamp(DateTime.now().millisecondsSinceEpoch);
+      PushNotificationService().registerDeviceToken();
       state = state.copyWith(
         lockState: AuthLockState.authenticatedUnlocked,
         status: AuthStatus.authenticated,
@@ -493,6 +495,7 @@ class AuthController extends Notifier<AuthState> {
       final nextState = isMpinSet
           ? AuthLockState.authenticatedUnlocked
           : AuthLockState.mpinEnrollmentRequired;
+      PushNotificationService().registerDeviceToken();
       state = state.copyWith(
         lockState: nextState,
         status: AuthStatus.authenticated,
@@ -512,6 +515,7 @@ class AuthController extends Notifier<AuthState> {
     try {
       final data = await _authRepo.loginWithMpin(mobileNumber, mpin);
       await _storage.saveLastActiveTimestamp(DateTime.now().millisecondsSinceEpoch);
+      PushNotificationService().registerDeviceToken();
       state = state.copyWith(
         lockState: AuthLockState.authenticatedUnlocked,
         status: AuthStatus.authenticated,
@@ -558,6 +562,7 @@ class AuthController extends Notifier<AuthState> {
     try {
       await _authRepo.createMpin(mpin, confirmMpin);
       await _storage.saveLastActiveTimestamp(DateTime.now().millisecondsSinceEpoch);
+      PushNotificationService().registerDeviceToken();
       state = state.copyWith(
         lockState: AuthLockState.authenticatedUnlocked,
         status: AuthStatus.authenticated,
@@ -613,6 +618,7 @@ class AuthController extends Notifier<AuthState> {
     try {
       await _authRepo.confirmMpinReset(resetToken, newMpin, confirmMpin);
       await _storage.saveLastActiveTimestamp(DateTime.now().millisecondsSinceEpoch);
+      PushNotificationService().registerDeviceToken();
       state = state.copyWith(
         lockState: AuthLockState.authenticatedUnlocked,
         status: AuthStatus.authenticated,
@@ -671,3 +677,4 @@ class AuthController extends Notifier<AuthState> {
     );
   }
 }
+

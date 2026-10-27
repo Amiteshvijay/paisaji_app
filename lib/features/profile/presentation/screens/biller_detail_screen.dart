@@ -98,7 +98,8 @@ class _BillerDetailScreenState extends ConsumerState<BillerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final billerName = widget.billerData['biller']?['name'] ?? 'Utility Biller';
+    final billerObj = widget.billerData['biller_details'] ?? widget.billerData['biller'];
+    final billerName = billerObj?['name'] ?? widget.billerData['nickname'] ?? 'Utility Biller';
 
     return Scaffold(
       appBar: AppBar(

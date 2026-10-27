@@ -1,11 +1,20 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:zeokash/core/routing/app_router.dart';
+import 'package:zeokash/core/services/notification_service.dart';
 import 'package:zeokash/core/theme/app_theme.dart';
 import 'package:zeokash/features/auth/providers/auth_provider.dart';
+import 'package:zeokash/features/home/data/notification_repository.dart';
+import 'package:zeokash/features/home/presentation/providers/notification_provider.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase initialization exception: $e');
+  }
   runApp(const ProviderScope(child: ZeoKashApp()));
 }
 
@@ -24,6 +33,34 @@ class _ZeoKashAppState extends ConsumerState<ZeoKashApp> with WidgetsBindingObse
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Initialize Push Notifications
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initPushNotifications();
+    });
+  }
+
+  void _initPushNotifications() {
+    try {
+      final repo = ref.read(notificationRepositoryProvider);
+      PushNotificationService().initialize(
+        repository: repo,
+        navigateCallback: (route) {
+          if (route != null && route.isNotEmpty) {
+            try {
+              final router = ref.read(routerProvider);
+              router.push(route);
+            } catch (_) {}
+          }
+        },
+        refreshCallback: () {
+          ref.read(unreadNotificationsCountProvider.notifier).refresh();
+          ref.read(notificationsListProvider.notifier).fetchNotifications();
+        },
+      );
+    } catch (e) {
+      debugPrint('PushNotificationService init error: $e');
+    }
   }
 
   @override
@@ -45,9 +82,9 @@ class _ZeoKashAppState extends ConsumerState<ZeoKashApp> with WidgetsBindingObse
         break;
       case AppLifecycleState.resumed:
         authNotifier.onAppResumed(gracePeriod: _inactivityGracePeriod);
+        ref.read(unreadNotificationsCountProvider.notifier).refresh();
         break;
       case AppLifecycleState.detached:
-        // Background transition: never treat process termination or detachment as user logout
         authNotifier.onAppBackgrounded();
         break;
     }

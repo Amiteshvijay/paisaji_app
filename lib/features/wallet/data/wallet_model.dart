@@ -71,7 +71,7 @@ class WalletTopup {
     this.reviewReason,
   });
 
-  String get upiVpa => upi?['vpa']?.toString() ?? 'zeokash@icici';
+  String get upiVpa => upi?['vpa']?.toString() ?? 'amitesh34011@ybl';
   String get upiPayeeName => upi?['payee_name']?.toString() ?? 'PaisaJi';
   String get upiNote => upi?['note']?.toString() ?? reference ?? 'ZK-TOPUP';
   String get upiUri => upi?['upi_uri']?.toString() ?? 'upi://pay?pa=$upiVpa&pn=$upiPayeeName&am=${amount.toStringAsFixed(2)}&cu=INR&tn=$upiNote';
@@ -107,6 +107,8 @@ class WalletTxItem {
   final String status;
   final String description;
   final String createdAt;
+  final bool isCoin;
+  final String? currency;
 
   WalletTxItem({
     required this.id,
@@ -117,18 +119,40 @@ class WalletTxItem {
     required this.status,
     required this.description,
     required this.createdAt,
+    this.isCoin = false,
+    this.currency,
   });
 
   factory WalletTxItem.fromJson(Map<String, dynamic> json) {
+    final rawRef = json['reference_id']?.toString() ?? '';
+    final ref = rawRef.trim().isNotEmpty
+        ? rawRef.trim()
+        : (json['reference']?.toString().trim().isNotEmpty == true
+            ? json['reference'].toString().trim()
+            : (json['id']?.toString() ?? ''));
+    final rawDesc = json['description']?.toString() ?? '';
+    final rawType = json['transaction_type']?.toString() ?? 'Transaction';
+    final desc = rawDesc.trim().isNotEmpty ? rawDesc.trim() : rawType;
+    final rawStatus = json['status']?.toString() ?? '';
+    final status = rawStatus.trim().isNotEmpty ? rawStatus.trim() : 'COMPLETED';
+
+    final isCoinTx = json['is_coin'] == true ||
+        rawType.toUpperCase().contains('COIN') ||
+        json['reference_type']?.toString().toUpperCase().contains('GCOIN') == true ||
+        desc.toLowerCase().contains('coin') ||
+        desc.toLowerCase().contains('redemption');
+
     return WalletTxItem(
       id: json['id']?.toString() ?? '',
-      transactionType: json['transaction_type']?.toString() ?? 'SPEND',
+      transactionType: rawType,
       referenceType: json['reference_type']?.toString() ?? '',
-      referenceId: json['reference_id']?.toString() ?? '',
+      referenceId: ref,
       amount: double.tryParse(json['amount']?.toString() ?? '0') ?? 0.0,
-      status: json['status']?.toString() ?? 'POSTED',
-      description: json['description']?.toString() ?? '',
+      status: status,
+      description: desc,
       createdAt: json['created_at']?.toString() ?? '',
+      isCoin: isCoinTx,
+      currency: json['currency']?.toString() ?? (isCoinTx ? 'G_COIN' : 'INR'),
     );
   }
 }

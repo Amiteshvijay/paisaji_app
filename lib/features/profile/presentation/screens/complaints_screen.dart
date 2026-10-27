@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -134,7 +135,7 @@ class _ComplaintsScreenState extends ConsumerState<ComplaintsScreen> {
                               ],
                             ),
                             const SizedBox(height: 4),
-                            Text('$category ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ $description', style: const TextStyle(color: AppTheme.secondaryText, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            Text('$category • $description', style: const TextStyle(color: AppTheme.secondaryText, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 12),
                             Text('Submitted on: $date', style: const TextStyle(color: AppTheme.secondaryText, fontSize: 12)),
                           ],
@@ -235,7 +236,12 @@ class _RaiseComplaintModalState extends ConsumerState<_RaiseComplaintModal> {
         int size = 0;
         try {
           if (_attachedFile!.path != null) {
-            size = await File(_attachedFile!.path!).length();
+            final f = File(_attachedFile!.path!);
+            size = await f.length();
+            if (size <= 5 * 1024 * 1024) {
+              final bytes = await f.readAsBytes();
+              metadata['attachment_base64'] = base64Encode(bytes);
+            }
           }
         } catch (_) {}
         metadata['attachment_size'] = size;

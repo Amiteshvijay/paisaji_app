@@ -41,7 +41,7 @@ class _TopupPendingScreenState extends ConsumerState<TopupPendingScreen> {
           _isChecking = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Status: ')),
+          SnackBar(content: Text('Status: ${_currentTopup.status}')),
         );
       }
     } catch (e) {
@@ -100,7 +100,7 @@ class _TopupPendingScreenState extends ConsumerState<TopupPendingScreen> {
 
               const SizedBox(height: 24),
               Text(
-                '₹',
+                '₹${_currentTopup.amount.toStringAsFixed(2)}',
                 style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 32, color: AppTheme.primaryNavy),
               ),
               const SizedBox(height: 8),
@@ -117,7 +117,7 @@ class _TopupPendingScreenState extends ConsumerState<TopupPendingScreen> {
               const SizedBox(height: 12),
               Text(
                 isCredited
-                    ? 'Your payment has been verified and ₹ has been added to your Paisaजी wallet.'
+                    ? 'Your payment has been verified and ₹${_currentTopup.amount.toStringAsFixed(2)} has been added to your Paisaजी wallet.'
                     : isRejected
                         ? (_currentTopup.rejectionReason ?? _currentTopup.reviewReason ?? 'Payment could not be matched with the submitted UTR.')
                         : "Your payment details have been submitted. We'll update your wallet once the payment is verified.",

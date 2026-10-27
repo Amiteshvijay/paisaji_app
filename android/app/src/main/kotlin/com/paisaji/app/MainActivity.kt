@@ -13,6 +13,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.annotation.NonNull
+import androidx.biometric.BiometricManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -23,7 +24,8 @@ import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 
 class MainActivity : FlutterFragmentActivity() {
-    private val CHANNEL = "com.paisaji.app/device_keystore"
+    private val CHANNEL_PAISAJI = "com.paisaji.app/device_keystore"
+    private val CHANNEL_LEGACY = "com.zeokash.zeokash/device_keystore"
     private val CONTACTS_CHANNEL = "com.paisaji.app/contacts"
     private val KEY_ALIAS = "paisaji_auth_device_key"
 
@@ -34,7 +36,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CONTACTS_CHANNEL).setMethodCallHandler { call, result ->
+        val contactsHandler = io.flutter.plugin.common.MethodChannel.MethodCallHandler { call, result ->
             when (call.method) {
                 "pickContact" -> {
                     if (pendingContactResult != null) {
@@ -55,8 +57,10 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.paisaji.app/contacts").setMethodCallHandler(contactsHandler)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.zeokash.zeokash/contacts").setMethodCallHandler(contactsHandler)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        val keystoreHandler = io.flutter.plugin.common.MethodChannel.MethodCallHandler { call, result ->
             try {
                 when (call.method) {
                     "getAndroidId" -> {
@@ -68,18 +72,48 @@ class MainActivity : FlutterFragmentActivity() {
                         var isHardwareDetected = false
                         var hasEnrolledFingerprints = false
 
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            val fingerprintManager = getSystemService(Context.FINGERPRINT_SERVICE) as? FingerprintManager
-                            if (fingerprintManager != null) {
-                                isHardwareDetected = fingerprintManager.isHardwareDetected
-                                hasEnrolledFingerprints = fingerprintManager.hasEnrolledFingerprints()
+                        // 1. Check via modern AndroidX BiometricManager (ColorOS / Android 10-15)
+                        try {
+                            val biometricManager = BiometricManager.from(this)
+                            val canAuth = biometricManager.canAuthenticate(
+                                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                                BiometricManager.Authenticators.BIOMETRIC_WEAK
+                            )
+                            when (canAuth) {
+                                BiometricManager.BIOMETRIC_SUCCESS -> {
+                                    isHardwareDetected = true
+                                    hasEnrolledFingerprints = true
+                                }
+                                BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                                    isHardwareDetected = true
+                                    hasEnrolledFingerprints = false
+                                }
+                                BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE,
+                                BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
+                                    isHardwareDetected = false
+                                }
+                                else -> {
+                                    isHardwareDetected = true
+                                }
                             }
+                        } catch (_: Exception) {}
+
+                        // 2. Legacy FingerprintManager check as fallback
+                        if (!isHardwareDetected && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            try {
+                                val fingerprintManager = getSystemService(Context.FINGERPRINT_SERVICE) as? FingerprintManager
+                                if (fingerprintManager != null) {
+                                    isHardwareDetected = fingerprintManager.isHardwareDetected
+                                    hasEnrolledFingerprints = hasEnrolledFingerprints || fingerprintManager.hasEnrolledFingerprints()
+                                }
+                            } catch (_: Exception) {}
                         }
 
+                        val finalHasHardware = hasHardwareFeature || isHardwareDetected
                         val resultMap = mapOf(
-                            "hasHardware" to (hasHardwareFeature || isHardwareDetected),
+                            "hasHardware" to finalHasHardware,
                             "isHardwareDetected" to isHardwareDetected,
-                            "hasEnrolled" to (isHardwareDetected && hasEnrolledFingerprints)
+                            "hasEnrolled" to (finalHasHardware && hasEnrolledFingerprints)
                         )
                         result.success(resultMap)
                     }
@@ -112,7 +146,6 @@ class MainActivity : FlutterFragmentActivity() {
                         val alias = call.argument<String>("alias") ?: KEY_ALIAS
                         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
                         if (!ks.containsAlias(alias)) {
-                            // Auto-generate key if not present
                             val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
                             val builder = KeyGenParameterSpec.Builder(
                                 alias,
@@ -136,12 +169,11 @@ class MainActivity : FlutterFragmentActivity() {
                         val nonce = call.argument<String>("nonce")
                         if (nonce == null) {
                             result.error("INVALID_ARGUMENT", "Nonce is required", null)
-                            return@setMethodCallHandler
+                            return@MethodCallHandler
                         }
 
                         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
                         if (!ks.containsAlias(alias)) {
-                            // Auto-generate key if not present
                             val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
                             val builder = KeyGenParameterSpec.Builder(
                                 alias,
@@ -178,6 +210,10 @@ class MainActivity : FlutterFragmentActivity() {
                 result.error("KEYSTORE_ERROR", e.localizedMessage, e.message)
             }
         }
+
+        // Register keystore handler on BOTH channels for full compatibility
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_PAISAJI).setMethodCallHandler(keystoreHandler)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_LEGACY).setMethodCallHandler(keystoreHandler)
     }
 
     @Deprecated("Deprecated in Java")
@@ -190,27 +226,51 @@ class MainActivity : FlutterFragmentActivity() {
 
             if (resultCode == Activity.RESULT_OK && data?.data != null) {
                 val contactUri: Uri = data.data!!
-                val projection = arrayOf(
-                    ContactsContract.CommonDataKinds.Phone.NUMBER,
-                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
-                )
                 try {
-                    contentResolver.query(contactUri, projection, null, null, null)?.use { cursor ->
-                        if (cursor.moveToFirst()) {
-                            val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                            val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                    var number: String? = null
+                    var name: String? = null
 
-                            val number = if (numberIndex != -1) cursor.getString(numberIndex) else null
-                            val name = if (nameIndex != -1) cursor.getString(nameIndex) else null
+                    val projection = arrayOf(
+                        ContactsContract.CommonDataKinds.Phone.NUMBER,
+                        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+                    )
+                    try {
+                        contentResolver.query(contactUri, projection, null, null, null)?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                                if (numberIndex != -1) number = cursor.getString(numberIndex)
+                                if (nameIndex != -1) name = cursor.getString(nameIndex)
+                            }
+                        }
+                    } catch (_: Exception) {}
 
-                            callback.success(mapOf(
-                                "name" to name,
-                                "phoneNumber" to number
-                            ))
-                            return
+                    if (number == null) {
+                        val contactId = contactUri.lastPathSegment
+                        if (contactId != null) {
+                            try {
+                                contentResolver.query(
+                                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                                    projection,
+                                    "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                                    arrayOf(contactId),
+                                    null
+                                )?.use { cursor ->
+                                    if (cursor.moveToFirst()) {
+                                        val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                        val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                                        if (numberIndex != -1) number = cursor.getString(numberIndex)
+                                        if (nameIndex != -1) name = cursor.getString(nameIndex)
+                                    }
+                                }
+                            } catch (_: Exception) {}
                         }
                     }
-                    callback.success(null)
+
+                    callback.success(mapOf(
+                        "name" to name,
+                        "phoneNumber" to number
+                    ))
                 } catch (e: Exception) {
                     callback.error("QUERY_FAILED", e.localizedMessage, null)
                 }

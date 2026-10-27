@@ -73,6 +73,7 @@ class RechargeRepository {
         'mobile_number': mobileNumber,
         'operator_code': operatorCode,
         'amount': amount.toStringAsFixed(2),
+        'payment_method': 'WALLET',
         if (circle != null && circle.isNotEmpty) 'circle': circle,
         if (serviceType != null && serviceType.isNotEmpty) 'service_type': serviceType,
         if (selectionId != null && selectionId.isNotEmpty) 'plan_selection_id': selectionId,
@@ -81,9 +82,22 @@ class RechargeRepository {
       if (response.data['success'] == true) {
         return response.data['data'] as Map<String, dynamic>;
       }
-      throw Exception(response.data['error']?['message'] ?? 'Failed to execute recharge order');
+      final failureReason = response.data['data']?['failure_reason'] ??
+          response.data['data']?['order']?['failure_reason'] ??
+          response.data['message'] ??
+          response.data['error']?['message'] ??
+          'Recharge failed at operator gateway';
+      throw Exception(failureReason);
     } on DioException catch (dioErr) {
-      final msg = dioErr.response?.data?['error']?['message'] ?? dioErr.response?.data?['message'] ?? dioErr.message;
+      final respData = dioErr.response?.data;
+      String? msg;
+      if (respData is Map<String, dynamic>) {
+        msg = respData['message']?.toString() ??
+            respData['data']?['failure_reason']?.toString() ??
+            respData['data']?['order']?['failure_reason']?.toString() ??
+            respData['error']?['message']?.toString();
+      }
+      msg ??= dioErr.message;
       throw Exception(msg ?? 'Recharge network error');
     } catch (e) {
       throw Exception('Recharge error: $e');
@@ -93,7 +107,28 @@ class RechargeRepository {
   Future<List<dynamic>> getRechargeHistory() async {
     try {
       final response = await _dio.get('recharge/history/');
-      return response.data['data'] ?? response.data['results'] ?? [];
+      final raw = response.data;
+      if (raw is List) {
+        return raw;
+      }
+      if (raw is Map) {
+        final data = raw['data'];
+        if (data is List) {
+          return data;
+        }
+        if (data is Map) {
+          if (data['results'] is List) {
+            return (data['results'] as List).toList();
+          }
+          if (data['orders'] is List) {
+            return (data['orders'] as List).toList();
+          }
+        }
+        if (raw['results'] is List) {
+          return (raw['results'] as List).toList();
+        }
+      }
+      return [];
     } catch (e) {
       return [];
     }

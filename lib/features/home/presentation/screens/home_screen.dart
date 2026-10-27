@@ -72,7 +72,7 @@ class HomeScreen extends ConsumerWidget {
                   title: 'Recharge & Bills',
                   actionText: 'View All',
                   onActionTap: () {
-                    context.push('/home/view-all');
+                    context.go('/services');
                   },
                 ),
               ),

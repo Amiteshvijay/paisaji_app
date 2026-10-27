@@ -66,11 +66,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     setState(() => _isLoading = true);
     try {
       final profileRepo = ref.read(profileRepositoryProvider);
+      final authState = ref.read(authControllerProvider);
       await profileRepo.completeOnboarding({
         'full_name': name,
+        'name': name,
         'city': city,
         'sex': _selectedSex,
         'dob': dob,
+        if (authState.email != null && authState.email!.isNotEmpty) 'email': authState.email,
       });
       await ref.read(secureStorageProvider).saveFullName(name);
 

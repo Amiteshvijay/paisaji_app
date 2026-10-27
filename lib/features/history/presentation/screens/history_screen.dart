@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zeokash/core/theme/app_theme.dart';
@@ -108,36 +108,63 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     itemBuilder: (context, index) {
                       final t = filtered[index];
                       final isSuccess = t.status == 'POSTED' || t.status == 'SUCCESS' || t.status == 'COMPLETED';
-                      final isReward = t.transactionType.toUpperCase().contains('REWARD');
+                      final isCoin = t.isCoin ||
+                          t.transactionType.toUpperCase().contains('COIN') ||
+                          t.transactionType.toUpperCase().contains('REWARD') ||
+                          t.referenceType.toUpperCase().contains('GCOIN') ||
+                          t.description.toLowerCase().contains('coin') ||
+                          t.description.toLowerCase().contains('redemption');
                       final isCredit = ['TOPUP', 'REWARD', 'REWARD_CREDIT', 'REFUND'].contains(t.transactionType.toUpperCase());
 
                       IconData iconData = Icons.payment;
-                      if (isReward) {
-                        iconData = Icons.card_giftcard_rounded;
+                      if (isCoin) {
+                        iconData = Icons.stars_rounded;
                       } else if (isCredit) {
                         iconData = Icons.arrow_downward_rounded;
                       } else {
                         iconData = Icons.arrow_upward_rounded;
                       }
 
+                      final descLower = t.description.toLowerCase();
+                      final isReversal = t.transactionType.toUpperCase() == 'REFUND' ||
+                          descLower.contains('reversal') ||
+                          t.referenceId.toLowerCase().contains('reversal');
+                      final roundedCoins = t.amount.round();
+
+                      String displayTitle;
+                      if (isReversal) {
+                        displayTitle = 'Reversal of $roundedCoins G Coins';
+                      } else if (descLower.contains('redemption') || descLower.contains('coins')) {
+                        displayTitle = 'Redemption of $roundedCoins G Coins';
+                      } else if (t.description.isNotEmpty) {
+                        displayTitle = t.description;
+                      } else {
+                        displayTitle = t.transactionType;
+                      }
+
+                      final refStr = t.referenceId.isNotEmpty ? t.referenceId : t.id;
+
                       return TransactionRow(
-                        title: t.description.isNotEmpty ? t.description : t.transactionType,
+                        title: displayTitle,
+                        subtitle: 'Ref: $refStr',
                         date: t.createdAt.length >= 16 ? t.createdAt.substring(0, 16).replaceFirst('T', ' ') : t.createdAt,
                         amount: t.amount,
                         isSuccess: isSuccess,
-                        currencySymbol: isReward ? 'G ' : '₹',
+                        isCoin: isCoin,
+                        customAmountText: isCoin ? '$roundedCoins Coins' : null,
+                        currencySymbol: isCoin ? '' : '₹',
                         amountPrefix: isCredit ? '+' : '-',
                         icon: iconData,
                         onTap: () {
                           context.push('/history/details', extra: {
-                            'title': t.description.isNotEmpty ? t.description : t.transactionType,
+                            'title': displayTitle,
                             'date': t.createdAt,
-                            'amount': t.amount,
+                            'amount': isCoin ? roundedCoins.toDouble() : t.amount,
                             'isSuccess': isSuccess,
-                            'ref': t.referenceId.isNotEmpty ? t.referenceId : t.id,
+                            'ref': refStr,
                             'type': t.transactionType,
                             'status': t.status,
-                            'isReward': isReward,
+                            'isReward': isCoin,
                           });
                         },
                       );
@@ -154,3 +181,4 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 }
+

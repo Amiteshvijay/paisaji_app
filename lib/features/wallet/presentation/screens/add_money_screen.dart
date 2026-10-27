@@ -116,9 +116,10 @@ class _AddMoneyScreenState extends ConsumerState<AddMoneyScreen> {
             Text('Quick Values', style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey)),
             const SizedBox(height: 10),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [500, 1000, 2000, 5000].map((amt) {
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [100, 200, 500, 1000, 2000].map((amt) {
                 final isSelected = _amountController.text == amt.toString();
                 return ChoiceChip(
                   label: Text('₹$amt', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),

@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zeokash/core/theme/app_theme.dart';
 import 'package:zeokash/features/rewards/providers/scratch_card_provider.dart';
 import 'package:zeokash/features/rewards/widgets/scratch_card_tile.dart';
 import 'package:zeokash/features/zeocoins/presentation/providers/zeocoin_provider.dart';
-import 'package:zeokash/shared/widgets/buttons/primary_button.dart';
 
 enum TierStatus {
   completed,
@@ -93,211 +92,17 @@ class _MyRewardsScreenState extends ConsumerState<MyRewardsScreen> with SingleTi
     return 'assets/GCoin_Level_Badges/assets/gcoin_levels/${names[levelNum] ?? 'level_01_starter.png'}';
   }
 
-  void _showLevelInfoBottomSheet(BuildContext context, int currentLevel, int totalCoinsWon) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) => Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'G Coin Club — Level & Rewards',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.primaryNavy),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text('Earn G Coins through recharges and bill payments to level up, unlock exclusive milestone coupons, and enjoy top-tier rewards.', style: TextStyle(color: AppTheme.secondaryText, fontSize: 13)),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  children: [
-                    _levelInfoRow(1, '1. G Starter', 100, totalCoinsWon, 'Welcome voucher up to ₹50', currentLevel),
-                    _levelInfoRow(2, '2. G Explorer', 200, totalCoinsWon, '₹100 partner coupon', currentLevel),
-                    _levelInfoRow(3, '3. G Bronze', 350, totalCoinsWon, '₹150 partner coupon', currentLevel),
-                    _levelInfoRow(4, '4. G Silver', 600, totalCoinsWon, '₹200 partner coupon', currentLevel),
-                    _levelInfoRow(5, '5. G Gold', 1000, totalCoinsWon, '₹300 partner coupon', currentLevel),
-                    _levelInfoRow(6, '6. G Platinum', 1600, totalCoinsWon, '₹500 partner coupon', currentLevel),
-                    _levelInfoRow(7, '7. G Diamond', 2500, totalCoinsWon, '₹750 partner reward bundle', currentLevel),
-                    _levelInfoRow(8, '8. G Elite', 4000, totalCoinsWon, '₹1,000 premium voucher bundle', currentLevel),
-                    _levelInfoRow(9, '9. G Royal', 6000, totalCoinsWon, '₹1,500 premium reward bundle', currentLevel),
-                    _levelInfoRow(10, '10. G Legend', 10000, totalCoinsWon, '₹2,500 exclusive partner bundle', currentLevel),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              PrimaryButton(
-                text: 'View Full G Coin Club Roadmap',
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  context.push('/loyalty/club');
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _levelInfoRow(int levelNum, String title, int minCoins, int totalCoinsWon, String reward, int currentLevel) {
-    final status = getTierStatus(tierIndex: levelNum, currentTierIndex: currentLevel);
-
-    Color badgeColor;
-    Color badgeTextColor;
-    String badgeText;
-
-    switch (status) {
-      case TierStatus.completed:
-        badgeColor = const Color(0xFF16A34A);
-        badgeTextColor = Colors.white;
-        badgeText = 'COMPLETED ✓';
-        break;
-      case TierStatus.active:
-        badgeColor = const Color(0xFF007BFF);
-        badgeTextColor = Colors.white;
-        badgeText = 'ACTIVE';
-        break;
-      case TierStatus.nextToUnlock:
-        badgeColor = const Color(0xFFD97706);
-        badgeTextColor = Colors.white;
-        badgeText = '🔒 NEXT TO UNLOCK';
-        break;
-      case TierStatus.locked:
-        badgeColor = const Color(0xFF94A3B8);
-        badgeTextColor = Colors.white;
-        badgeText = '🔒 LOCKED';
-        break;
-    }
-
-    final int remaining = (minCoins - totalCoinsWon).clamp(0, 99999);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: status == TierStatus.active ? AppTheme.primaryBlue.withValues(alpha: 0.06) : AppTheme.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: status == TierStatus.active ? AppTheme.primaryBlue : AppTheme.border,
-          width: status == TierStatus.active ? 2.0 : 1.0,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: status == TierStatus.active ? AppTheme.primaryBlue : AppTheme.primaryNavy,
-                            ),
-                          ),
-                        ),
-                        if (status == TierStatus.active) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryBlue,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'ACTIVE',
-                              style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      reward,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: AppTheme.secondaryText, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  badgeText,
-                  style: TextStyle(color: badgeTextColor, fontWeight: FontWeight.bold, fontSize: 10),
-                ),
-              ),
-            ],
-          ),
-          if (status == TierStatus.nextToUnlock) ...[
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '$totalCoinsWon / $minCoins Coins',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
-                ),
-                Text(
-                  '$remaining more coins to unlock',
-                  style: const TextStyle(fontSize: 11, color: AppTheme.secondaryText),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            LinearProgressIndicator(
-              value: (totalCoinsWon / (minCoins == 0 ? 1 : minCoins)).clamp(0.0, 1.0),
-              backgroundColor: AppTheme.border,
-              color: const Color(0xFFD97706),
-              minHeight: 6,
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final summaryAsync = ref.watch(rewardSummaryProvider);
+    final ledgerAsync = ref.watch(zeocoinLedgerProvider);
+    final totalSpentCoins = ledgerAsync.maybeWhen(
+      data: (entries) => entries
+          .where((e) => e.direction == 'DEBIT' || e.eventType.contains('SPEND') || e.eventType.contains('REDEEM'))
+          .fold<double>(0.0, (sum, e) => sum + e.amount.abs()).round(),
+      orElse: () => 0,
+    );
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -372,7 +177,7 @@ class _MyRewardsScreenState extends ConsumerState<MyRewardsScreen> with SingleTi
                             ),
                           ),
                           GestureDetector(
-                            onTap: () => _showLevelInfoBottomSheet(context, levelNum, summary.totalCoinsWon),
+                            onTap: () => context.push('/rewards/g-coin-club'),
                             child: Image.asset(
                               _getBadgeAsset(levelNum),
                               width: 56,
@@ -401,7 +206,7 @@ class _MyRewardsScreenState extends ConsumerState<MyRewardsScreen> with SingleTi
                         children: [
                           _buildStatItem('Available Cards', '${summary.cardsAvailable}'),
                           _buildStatItem('Claimed', '${summary.cardsClaimed}'),
-                          _buildStatItem('Spends', '$usedCoins'),
+                          _buildStatItem('Spends', '$totalSpentCoins'),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -637,3 +442,6 @@ class _MyRewardsScreenState extends ConsumerState<MyRewardsScreen> with SingleTi
     );
   }
 }
+
+
+

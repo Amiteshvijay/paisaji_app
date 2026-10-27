@@ -351,12 +351,38 @@ class WalletHomeScreen extends ConsumerWidget {
                     itemBuilder: (context, index) {
                       final item = txs[index];
                       final isCredit = ['TOPUP', 'REWARD_CREDIT', 'REWARD', 'REFUND'].contains(item.transactionType.toUpperCase());
+                      final statusUpper = item.status.toUpperCase();
+                      final isSuccess = statusUpper == 'SUCCESS' || statusUpper == 'COMPLETED' || statusUpper == 'POSTED';
+                      final isPending = statusUpper == 'PENDING' || statusUpper == 'PROCESSING' || statusUpper == 'CREATED' || statusUpper == 'INITIATED';
+                      final isReward = item.transactionType.toUpperCase().contains('REWARD');
+                      final currSymbol = isReward ? 'G ' : '₹';
+                      final refDisplay = item.referenceId.isNotEmpty ? item.referenceId : item.id;
+                      final amtFormatted = item.amount == item.amount.roundToDouble()
+                          ? item.amount.toInt().toString()
+                          : item.amount.toStringAsFixed(2);
+
                       return ListTile(
+                        onTap: () {
+                          context.push('/history/details', extra: {
+                            'title': item.description.isNotEmpty ? item.description : item.transactionType,
+                            'date': item.createdAt,
+                            'amount': item.amount,
+                            'isSuccess': isSuccess,
+                            'ref': refDisplay,
+                            'type': item.transactionType,
+                            'status': item.status,
+                            'isReward': isReward,
+                          });
+                        },
                         leading: CircleAvatar(
-                          backgroundColor: isCredit ? Colors.green.shade50 : Colors.red.shade50,
+                          backgroundColor: isSuccess
+                              ? (isCredit ? Colors.green.shade50 : Colors.red.shade50)
+                              : (isPending ? Colors.orange.shade50 : Colors.red.shade50),
                           child: Icon(
                             isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-                            color: isCredit ? Colors.green : Colors.red,
+                            color: isSuccess
+                                ? (isCredit ? Colors.green : Colors.red)
+                                : (isPending ? Colors.orange : Colors.red),
                           ),
                         ),
                         title: Text(
@@ -364,16 +390,32 @@ class WalletHomeScreen extends ConsumerWidget {
                           style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 14),
                         ),
                         subtitle: Text(
-                          item.createdAt.length >= 10 ? item.createdAt.substring(0, 10) : item.createdAt,
+                          '${item.createdAt.length >= 10 ? item.createdAt.substring(0, 10) : item.createdAt} • Ref: $refDisplay',
                           style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        trailing: Text(
-                          '${isCredit ? '+' : '-'}₹${item.amount.toStringAsFixed(2)}',
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: isCredit ? Colors.green : Colors.black87,
-                          ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${isCredit ? '+' : '-'}$currSymbol$amtFormatted',
+                              style: GoogleFonts.outfit(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isCredit ? Colors.green : Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              statusUpper,
+                              style: GoogleFonts.outfit(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isSuccess ? Colors.green.shade700 : (isPending ? Colors.orange.shade800 : Colors.red.shade700),
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     },

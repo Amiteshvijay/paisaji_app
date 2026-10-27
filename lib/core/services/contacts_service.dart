@@ -14,14 +14,23 @@ class PickedContact {
 }
 
 class ContactsService {
-  static const MethodChannel _channel = MethodChannel('com.zeokash.zeokash/contacts');
+  static const MethodChannel _paisajiChannel = MethodChannel('com.paisaji.app/contacts');
+  static const MethodChannel _zeokashChannel = MethodChannel('com.zeokash.zeokash/contacts');
 
   /// Opens the device contact directory picker just like PhonePe / Amazon Pay.
   /// Returns [PickedContact] if a contact was picked, or null if cancelled.
   static Future<PickedContact?> pickContact() async {
     if (!Platform.isAndroid) return null;
     try {
-      final res = await _channel.invokeMapMethod<String, dynamic>('pickContact');
+      Map<dynamic, dynamic>? res;
+      try {
+        res = await _paisajiChannel.invokeMapMethod<String, dynamic>('pickContact');
+      } catch (_) {
+        // Fallback to legacy channel
+        try {
+          res = await _zeokashChannel.invokeMapMethod<String, dynamic>('pickContact');
+        } catch (_) {}
+      }
       if (res == null) return null;
       final rawNumber = res['phoneNumber']?.toString();
       if (rawNumber == null || rawNumber.trim().isEmpty) return null;

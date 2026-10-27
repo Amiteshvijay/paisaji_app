@@ -20,6 +20,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
   final _amountController = TextEditingController();
   String? _selectedOperator;
   String? _selectedCircle;
+  String? _selectedContactName;
   bool _useZeoCoins = true;
   bool _userManuallySelectedOperator = false;
   bool _userManuallySelectedCircle = false;
@@ -96,23 +97,28 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
   double _getDiscountRate(String? op) {
     if (op == null) return 0.005;
     final lower = op.toLowerCase();
-    if (lower.contains('airtel')) return 0.005;
-    if (lower.contains('jio')) return 0.005;
-    if (lower.contains('vi') || lower.contains('vodafone') || lower.contains('idea')) return 0.015;
-    if (lower.contains('bsnl')) return 0.020;
+    if (lower.contains('bsnl')) return 0.015; // BSNL 1.5%
+    if (lower.contains('vi') || lower.contains('vodafone') || lower.contains('idea')) return 0.020; // VI 2%
+    if (lower.contains('airtel')) return 0.005; // Airtel 0.5%
+    if (lower.contains('jio')) return 0.005; // Jio 0.5%
+    if (lower.contains('mtnl')) return 0.005; // MTNL 0.5%
     return 0.005;
   }
 
   String _getDiscountPercentText(String? op) {
     final rate = _getDiscountRate(op);
-    return '${(rate * 100).toStringAsFixed(1)}%';
+    final pct = rate * 100;
+    if (pct == pct.roundToDouble()) {
+      return '${pct.toInt()}%';
+    }
+    return '${pct.toStringAsFixed(1)}%';
   }
 
   double get _enteredAmount => double.tryParse(_amountController.text.trim()) ?? 0.0;
   bool get _isJio => (_selectedOperator ?? '').toLowerCase().contains('jio');
   bool get _isJioUnderMin => _isJio && _enteredAmount > 0 && _enteredAmount < 349;
 
-  /// Helper to mask phone numbers securely: e.g. 9661665549 -> 9661â€¢â€¢â€¢â€¢49
+  /// Helper to mask phone numbers securely: e.g. 9661665549 -> 9661••••49
 
 
   /// Helper to format ISO dates to concise readable string
@@ -156,6 +162,9 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
       if (contact != null && contact.cleanNumber.isNotEmpty) {
         setState(() {
           _phoneController.text = contact.cleanNumber;
+          _selectedContactName = (contact.name != null && contact.name!.trim().isNotEmpty)
+              ? contact.name!.trim()
+              : null;
         });
         _onPhoneChanged(contact.cleanNumber);
         if (mounted && contact.name != null && contact.name!.trim().isNotEmpty) {
@@ -285,7 +294,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                         ),
                         subtitle: Text(
-                          '$op â€¢ $date',
+                          '$op • $date',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: AppTheme.secondaryText, fontSize: 12),
@@ -295,7 +304,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              'â‚¹$amt',
+                              '₹$amt',
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryNavy),
                             ),
                             const SizedBox(height: 2),
@@ -348,7 +357,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
     if (_isJio && amt < 349) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Jio mobile recharge will be done for â‚¹349 or more. Less than â‚¹349 recharge is not available.'),
+          content: Text('Jio mobile recharge will be done for ₹349 or more. Less than ₹349 recharge is not available.'),
           backgroundColor: Color(0xFFDC2626),
           duration: Duration(seconds: 3),
         ),
@@ -642,7 +651,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'You won +20 G Coins â€¢ Tap to view all',
+                    'You won +20 G Coins • Tap to view all',
                     style: TextStyle(
                       fontSize: 13,
                       color: Color(0xFF64748B),
@@ -775,57 +784,77 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      tooltip: 'Select from contacts',
-                      icon: const Icon(
-                        Icons.contact_phone_outlined,
-                        color: Color(0xFF0047AB),
-                        size: 24,
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: InkWell(
+                        onTap: _pickFromContacts,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0047AB).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.contacts_rounded,
+                            color: Color(0xFF0047AB),
+                            size: 22,
+                          ),
+                        ),
                       ),
-                      onPressed: _pickFromContacts,
                     ),
                   ],
                 ),
               ),
+              if (_selectedContactName != null && _selectedContactName!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.person_rounded, size: 16, color: Color(0xFF0047AB)),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          _selectedContactName!,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0047AB),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedContactName = null;
+                            _phoneController.clear();
+                          });
+                        },
+                        child: const Icon(Icons.close, size: 16, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
 
               // 2. Operator Section (User selection is final, supporting MNP)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Operator',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  if (_userManuallySelectedOperator)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFBFDBFE)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check_circle_outline, size: 12, color: Color(0xFF0047AB)),
-                          SizedBox(width: 4),
-                          Text(
-                            'User Selected (MNP)',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF0047AB),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+              const Text(
+                'Operator',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: Color(0xFF0F172A),
+                ),
               ),
               const SizedBox(height: 8),
               Container(
@@ -1036,7 +1065,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Jio recharges below â‚¹349 are not available. Please choose â‚¹349 or higher.',
+                        'Jio recharges below ₹349 are not available. Please choose ₹349 or higher.',
                         style: TextStyle(
                           color: Color(0xFFDC2626),
                           fontSize: 12,
@@ -1054,7 +1083,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Minimum recharge for Jio is â‚¹349. Choose higher recharge for valid plans.',
+                        'Minimum recharge for Jio is ₹349. Choose higher recharge for valid plans.',
                         style: TextStyle(
                           color: Color(0xFF64748B),
                           fontSize: 12,
@@ -1071,7 +1100,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Your balance : â‚¹$balanceStr',
+                    'Your balance : ₹$balanceStr',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -1136,7 +1165,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Balance: ${coinBalance.toStringAsFixed(0)} Coins (â‚¹${coinInrValue.toStringAsFixed(2)}) â€¢ 5% usable',
+                            'Balance: ${coinBalance.toStringAsFixed(0)} Coins (₹${coinInrValue.toStringAsFixed(2)}) • 5% usable',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFFB45309),
@@ -1201,7 +1230,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                'Save â‚¹${totalSavings.toStringAsFixed(2)}',
+                                'Save ₹${totalSavings.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   color: Color(0xFF16A34A),
                                   fontSize: 11,
@@ -1212,18 +1241,18 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildSummaryRow('Recharge Plan Amount', 'â‚¹${amt.toStringAsFixed(2)}'),
+                      _buildSummaryRow('Recharge Plan Amount', '₹${amt.toStringAsFixed(2)}'),
                       const SizedBox(height: 6),
                       _buildSummaryRow(
                         'Instant Discount (${_getDiscountPercentText(_selectedOperator)})',
-                        '-â‚¹${instantDiscount.toStringAsFixed(2)}',
+                        '-₹${instantDiscount.toStringAsFixed(2)}',
                         isDiscount: true,
                       ),
                       if (_useZeoCoins && coinDiscount > 0) ...[
                         const SizedBox(height: 6),
                         _buildSummaryRow(
-                          'G Coins Applied (${coinsUsed.toStringAsFixed(coinsUsed == coinsUsed.roundToDouble() ? 0 : 2)} Coins â€¢ 5%)',
-                          '-â‚¹${coinDiscount.toStringAsFixed(2)}',
+                          'G Coins Applied (${coinsUsed.toStringAsFixed(coinsUsed == coinsUsed.roundToDouble() ? 0 : 2)} Coins • 5%)',
+                          '-₹${coinDiscount.toStringAsFixed(2)}',
                           isDiscount: true,
                         ),
                       ],
@@ -1243,7 +1272,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                             ),
                           ),
                           Text(
-                            'â‚¹${finalAmount.toStringAsFixed(2)}',
+                            '₹${finalAmount.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
@@ -1274,7 +1303,7 @@ class _MobileRechargeScreenState extends ConsumerState<MobileRechargeScreen> {
                   ),
                   child: Text(
                     amt > 0
-                        ? 'Recharge Now â€¢ â‚¹${finalAmount.toStringAsFixed(2)}'
+                        ? 'Recharge Now • ₹${finalAmount.toStringAsFixed(2)}'
                         : 'Recharge Now',
                     style: const TextStyle(
                       fontSize: 16,

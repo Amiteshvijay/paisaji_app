@@ -1,0 +1,29 @@
+﻿{
+  "project_info": {
+    "project_number": "866029430412",
+    "project_id": "paisaji-e9dd2",
+    "storage_bucket": "paisaji-e9dd2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:866029430412:android:0b71b40e49970abb037da9",
+        "android_client_info": {
+          "package_name": "com.paisaji.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_i5eZbJVZVNb1Y8ikMspRg3rXY2sniC0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

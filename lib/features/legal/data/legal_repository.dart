@@ -92,9 +92,9 @@ class LegalRepository {
       ComplianceContactModel(
         role: 'Grievance Redressal Officer',
         officerName: 'Principal Grievance Officer',
-        officialEmail: 'grievance@zeokash.com',
+        officialEmail: 'grievance@paisaji.com',
         phone: '+91 8860996616',
-        officeAddress: 'ZeoKash Technologies Private Limited, Sector 62, Noida, Uttar Pradesh - 201309',
+        officeAddress: 'PaisaJi Payments Private Limited, Sector 62, Noida, Uttar Pradesh - 201309',
         supportHours: 'Monday to Friday, 10:00 AM – 06:00 PM IST',
         escalationLevel: 1,
       ),
@@ -140,7 +140,7 @@ class LegalRepository {
       sortOrder: doc.sortOrder,
       currentVersion: LegalDocumentVersionModel(
         version: '1.0',
-        content: '# ${doc.title}\n\nPlease visit our official portal or check your internet connection to view the latest live version.\n\nFor assistance, contact **support@zeokash.com**.',
+        content: '# ${doc.title}\n\nPlease visit our official portal or check your internet connection to view the latest live version.\n\nFor assistance, contact **support@paisaji.com**.',
         contentFormat: 'MARKDOWN',
         effectiveDate: 'October 2026',
         lastUpdatedDate: 'October 2026',

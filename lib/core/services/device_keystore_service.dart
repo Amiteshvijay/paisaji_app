@@ -2,25 +2,31 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 
 class DeviceKeystoreService {
-  static const MethodChannel _channel = MethodChannel('com.zeokash.zeokash/device_keystore');
-  static const String _defaultAlias = 'zeokash_auth_device_key';
+  static const MethodChannel _primaryChannel = MethodChannel('com.paisaji.app/device_keystore');
+  static const MethodChannel _legacyChannel = MethodChannel('com.zeokash.zeokash/device_keystore');
+  static const String _defaultAlias = 'paisaji_auth_device_key';
+
+  static Future<T?> _invokeWithFallback<T>(String method, [dynamic arguments]) async {
+    try {
+      return await _primaryChannel.invokeMethod<T>(method, arguments);
+    } catch (_) {
+      try {
+        return await _legacyChannel.invokeMethod<T>(method, arguments);
+      } catch (_) {
+        return null;
+      }
+    }
+  }
 
   static Future<String?> getNativeAndroidId() async {
     if (!Platform.isAndroid) return null;
-    try {
-      final String? androidId = await _channel.invokeMethod('getAndroidId');
-      return androidId;
-    } on PlatformException {
-      return null;
-    } catch (_) {
-      return null;
-    }
+    return await _invokeWithFallback<String>('getAndroidId');
   }
 
   static Future<Map<String, dynamic>> getFingerprintStatus() async {
     if (!Platform.isAndroid) return {'hasHardware': false, 'hasEnrolled': false};
     try {
-      final Map<dynamic, dynamic>? res = await _channel.invokeMethod('getFingerprintStatus');
+      final res = await _invokeWithFallback<Map<dynamic, dynamic>>('getFingerprintStatus');
       if (res != null) {
         return Map<String, dynamic>.from(res);
       }
@@ -32,58 +38,35 @@ class DeviceKeystoreService {
 
   static Future<bool> hasKey({String alias = _defaultAlias}) async {
     if (!Platform.isAndroid) return false;
-    try {
-      final bool? exists = await _channel.invokeMethod('hasKey', {'alias': alias});
-      return exists ?? false;
-    } catch (_) {
-      return false;
-    }
+    final res = await _invokeWithFallback<bool>('hasKey', {'alias': alias});
+    return res ?? false;
   }
 
   static Future<String?> createKeyPair({String alias = _defaultAlias}) async {
     if (!Platform.isAndroid) return null;
-    try {
-      final String? b64PublicKey = await _channel.invokeMethod('createKeyPair', {'alias': alias});
-      return b64PublicKey;
-    } catch (_) {
-      return null;
-    }
+    return await _invokeWithFallback<String>('createKeyPair', {'alias': alias});
   }
 
   static Future<String?> getPublicKey({String alias = _defaultAlias}) async {
     if (!Platform.isAndroid) return null;
-    try {
-      final String? b64PublicKey = await _channel.invokeMethod('getPublicKey', {'alias': alias});
-      return b64PublicKey;
-    } catch (_) {
-      return null;
-    }
+    return await _invokeWithFallback<String>('getPublicKey', {'alias': alias});
   }
 
   static Future<String?> signChallenge(String nonce, {String alias = _defaultAlias}) async {
     if (!Platform.isAndroid) return null;
-    try {
-      final exists = await hasKey(alias: alias);
-      if (!exists) {
-        await createKeyPair(alias: alias);
-      }
-      final String? signature = await _channel.invokeMethod('signChallenge', {
-        'nonce': nonce,
-        'alias': alias,
-      });
-      return signature;
-    } catch (_) {
-      return null;
+    final exists = await hasKey(alias: alias);
+    if (!exists) {
+      await createKeyPair(alias: alias);
     }
+    return await _invokeWithFallback<String>('signChallenge', {
+      'nonce': nonce,
+      'alias': alias,
+    });
   }
 
   static Future<bool> deleteKey({String alias = _defaultAlias}) async {
     if (!Platform.isAndroid) return false;
-    try {
-      final bool? deleted = await _channel.invokeMethod('deleteKey', {'alias': alias});
-      return deleted ?? false;
-    } catch (_) {
-      return false;
-    }
+    final res = await _invokeWithFallback<bool>('deleteKey', {'alias': alias});
+    return res ?? false;
   }
 }

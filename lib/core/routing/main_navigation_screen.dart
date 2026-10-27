@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zeokash/core/theme/app_theme.dart';
+import 'package:zeokash/core/theme/paisaji_brand.dart';
 
 class MainNavigationScreen extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -11,96 +12,185 @@ class MainNavigationScreen extends StatelessWidget {
   });
 
   void _onTap(BuildContext context, int index) {
-    if (index == 1) {
-      // Services tab -> open All Services catalog
-      context.push('/home/view-all');
-      return;
-    }
-    // Bottom bar items:
-    // 0: Home -> branch 0
-    // 2: ZeoAI -> branch 1
-    // 3: History -> branch 2
-    // 4: Loan -> branch 3
-    final branchIndex = index == 0 ? 0 : index - 1;
     navigationShell.goBranch(
-      branchIndex,
-      initialLocation: branchIndex == navigationShell.currentIndex,
+      index,
+      initialLocation: index == navigationShell.currentIndex,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    int currentBarIndex = navigationShell.currentIndex;
-    if (currentBarIndex >= 1) currentBarIndex += 1;
+    final currentBarIndex = navigationShell.currentIndex;
 
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: const Border(
             top: BorderSide(
               color: AppTheme.border,
               width: 1.0,
             ),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0A2342).withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, -3),
+            ),
+          ],
         ),
-        child: BottomNavigationBar(
-          currentIndex: currentBarIndex,
-          onTap: (index) => _onTap(context, index),
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppTheme.surface,
-          selectedItemColor: AppTheme.primaryBlue,
-          unselectedItemColor: AppTheme.secondaryText,
-          selectedLabelStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Inter',
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            fontFamily: 'Inter',
-          ),
-          elevation: 0,
-          items: [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home_filled),
-              label: 'Home',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view_outlined),
-              activeIcon: Icon(Icons.grid_view),
-              label: 'Services',
-            ),
-            BottomNavigationBarItem(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.aiTeal.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildNavItem(
+                  context,
+                  index: 0,
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home_filled,
+                  label: 'Home',
+                  isSelected: currentBarIndex == 0,
                 ),
-                child: const Icon(Icons.auto_awesome_outlined, color: AppTheme.aiTeal, size: 28),
-              ),
-              activeIcon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.aiTeal.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
+                _buildNavItem(
+                  context,
+                  index: 1,
+                  icon: Icons.grid_view_outlined,
+                  activeIcon: Icons.grid_view,
+                  label: 'Services',
+                  isSelected: currentBarIndex == 1,
                 ),
-                child: const Icon(Icons.auto_awesome, color: AppTheme.aiTeal, size: 28),
+                _buildCenterJiAiButton(
+                  context,
+                  isSelected: currentBarIndex == 2,
+                ),
+                _buildNavItem(
+                  context,
+                  index: 3,
+                  icon: Icons.history_outlined,
+                  activeIcon: Icons.history,
+                  label: 'History',
+                  isSelected: currentBarIndex == 3,
+                ),
+                _buildNavItem(
+                  context,
+                  index: 4,
+                  icon: Icons.account_balance_wallet_outlined,
+                  activeIcon: Icons.account_balance_wallet,
+                  label: 'Loan',
+                  isSelected: currentBarIndex == 4,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+    BuildContext context, {
+    required int index,
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required bool isSelected,
+  }) {
+    final color = isSelected ? AppTheme.primaryBlue : AppTheme.secondaryText;
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _onTap(context, index),
+          splashColor: AppTheme.primaryBlue.withValues(alpha: 0.1),
+          highlightColor: Colors.transparent,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isSelected ? activeIcon : icon,
+                size: 24,
+                color: color,
               ),
-              label: 'G-Ai',
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  fontFamily: 'Inter',
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterJiAiButton(
+    BuildContext context, {
+    required bool isSelected,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _onTap(context, 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Transform.translate(
+              offset: const Offset(0, -8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected ? const Color(0xFFEFF6FF) : Colors.white,
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF007BFF) : const Color(0xFFBFDBFE),
+                    width: isSelected ? 2.5 : 2.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF007BFF).withValues(alpha: isSelected ? 0.35 : 0.20),
+                      blurRadius: isSelected ? 12 : 8,
+                      offset: const Offset(0, 4),
+                      spreadRadius: isSelected ? 1 : 0,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Image.asset(
+                    PaisaJiBrand.monogram,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined),
-              activeIcon: Icon(Icons.history),
-              label: 'History',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              activeIcon: Icon(Icons.account_balance_wallet),
-              label: 'Loan',
+            Transform.translate(
+              offset: const Offset(0, -6),
+              child: Text(
+                'Ji-AI',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                  fontFamily: 'Inter',
+                  color: isSelected ? const Color(0xFF0047AB) : const Color(0xFF007BFF),
+                  letterSpacing: 0.2,
+                ),
+              ),
             ),
           ],
         ),

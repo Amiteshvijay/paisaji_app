@@ -1,4 +1,4 @@
-import 'package:zeokash/core/storage/secure_storage.dart';
+﻿import 'package:zeokash/core/storage/secure_storage.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -187,13 +187,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (pickedFile != null) {
         setState(() => _isUploadingPhoto = true);
         final repo = ref.read(profileRepositoryProvider);
-        await repo.updateProfile({
-          'profile_photo': pickedFile.path,
-        });
+        await repo.uploadProfilePhoto(pickedFile.path);
         ref.invalidate(profileDataProvider);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile picture updated successfully')),
+            const SnackBar(
+              content: Text('Profile picture uploaded successfully to server!'),
+              backgroundColor: AppTheme.success,
+            ),
           );
         }
       }
@@ -550,3 +551,4 @@ class _ProfileItem {
     required this.onTap,
   });
 }
+

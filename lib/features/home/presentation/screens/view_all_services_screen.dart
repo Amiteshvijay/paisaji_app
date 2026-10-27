@@ -1,4 +1,4 @@
-import 'package:url_launcher/url_launcher.dart';
+﻿import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zeokash/core/theme/app_theme.dart';
@@ -94,6 +94,7 @@ class _ViewAllServicesScreenState extends State<ViewAllServicesScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/home')),
         title: const Text('All Services', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18)),
       ),
       body: SingleChildScrollView(

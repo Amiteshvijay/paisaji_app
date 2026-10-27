@@ -13,6 +13,9 @@ class PaymentSuccessScreen extends ConsumerStatefulWidget {
   final String? mobileNumber;
   final String? scratchCardId;
   final double? coinsRedeemed;
+  final double? baseAmount;
+  final double? instantDiscount;
+  final double? gCoinDiscount;
 
   const PaymentSuccessScreen({
     super.key,
@@ -23,6 +26,9 @@ class PaymentSuccessScreen extends ConsumerStatefulWidget {
     this.mobileNumber,
     this.scratchCardId,
     this.coinsRedeemed,
+    this.baseAmount,
+    this.instantDiscount,
+    this.gCoinDiscount,
   });
 
   @override
@@ -495,6 +501,13 @@ class _PaymentSuccessScreenState extends ConsumerState<PaymentSuccessScreen> {
                   'title': widget.title,
                   'amount': widget.amount,
                   'reference': widget.reference,
+                  'mobileNumber': widget.mobileNumber,
+                  'operatorName': widget.operatorName,
+                  'date': DateTime.now().toString().substring(0, 19),
+                  'status': 'SUCCESS',
+                  'baseAmount': widget.baseAmount,
+                  'instantDiscount': widget.instantDiscount,
+                  'gCoinDiscount': widget.gCoinDiscount,
                 }),
                 child: const Text('View Receipt', style: TextStyle(color: AppTheme.primaryText, fontWeight: FontWeight.w600)),
               ),

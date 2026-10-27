@@ -37,6 +37,23 @@ class ZeoCoinRepository {
     throw Exception(response.data['message'] ?? 'Failed to load referral dashboard');
   }
 
+    Future<Map<String, dynamic>> submitDirectReferral({
+    required String name,
+    required String mobileNumber,
+  }) async {
+    final response = await _dio.post(
+      'referrals/invite/',
+      data: {
+        'name': name,
+        'mobile_number': mobileNumber,
+      },
+    );
+    if ((response.statusCode == 200 || response.statusCode == 201) && response.data['success'] == true) {
+      return Map<String, dynamic>.from(response.data);
+    }
+    throw Exception(response.data['message'] ?? 'Failed to submit referral invitation');
+  }
+
   Future<bool> applyReferralCode(String code) async {
     final response = await _dio.post('referrals/apply/', data: {'referral_code': code});
     if (response.statusCode == 200 && response.data['success'] == true) {
@@ -68,5 +85,19 @@ class ZeoCoinRepository {
       return Map<String, dynamic>.from(response.data['data']);
     }
     throw Exception(response.data['message'] ?? 'Failed to redeem coins');
+  }
+
+  Future<Map<String, dynamic>> reverseRedemption(double coinAmount, String transactionReference) async {
+    final response = await _dio.post(
+      'zeocoins/redeem/reverse/',
+      data: {
+        'coin_amount': coinAmount.toStringAsFixed(2),
+        'transaction_reference': transactionReference,
+      },
+    );
+    if (response.statusCode == 200 && response.data['success'] == true) {
+      return Map<String, dynamic>.from(response.data['data']);
+    }
+    throw Exception(response.data['message'] ?? 'Failed to reverse coins');
   }
 }

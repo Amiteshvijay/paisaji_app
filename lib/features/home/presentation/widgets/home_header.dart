@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zeokash/core/storage/secure_storage.dart';
 import 'package:zeokash/core/theme/app_theme.dart';
+import 'package:zeokash/features/home/presentation/providers/notification_provider.dart';
 import 'package:zeokash/features/profile/presentation/screens/profile_screen.dart';
 import 'package:zeokash/features/zeocoins/presentation/providers/zeocoin_provider.dart';
 
@@ -54,6 +55,7 @@ class _HomeHeaderState extends ConsumerState<HomeHeader> {
 
     final walletAsync = ref.watch(zeocoinWalletProvider);
     final availableCoins = walletAsync.asData?.value.availableBalance.toInt() ?? 0;
+    final unreadCount = ref.watch(unreadNotificationsCountProvider);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 14, 12),
@@ -104,7 +106,7 @@ class _HomeHeaderState extends ConsumerState<HomeHeader> {
           ),
           const SizedBox(width: 6),
 
-          // Available ZeoCoins Pill Badge (Redirects to My Rewards screen)
+          // Available G Coins Pill Badge (Redirects to My Rewards screen)
           InkWell(
             onTap: () => context.push('/rewards/my-rewards'),
             borderRadius: BorderRadius.circular(20),
@@ -171,10 +173,43 @@ class _HomeHeaderState extends ConsumerState<HomeHeader> {
           ),
           const SizedBox(width: 4),
 
-          IconButton(
-            onPressed: widget.onNotificationTap,
-            icon: const Icon(Icons.notifications_outlined, size: 28),
-            color: AppTheme.primaryText,
+          // Bell Icon with Unread Badge
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                onPressed: widget.onNotificationTap,
+                icon: const Icon(Icons.notifications_outlined, size: 28),
+                color: AppTheme.primaryText,
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.error,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Center(
+                      child: Text(
+                        unreadCount > 99 ? '99+' : '$unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

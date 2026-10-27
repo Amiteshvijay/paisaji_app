@@ -69,7 +69,9 @@ class ZeoCoinLedgerItem {
 
 class ReferralItem {
   final String id;
+  final String referredName;
   final String referredMobile;
+  final String referralCode;
   final String status;
   final bool signupRewardCredited;
   final bool firstTxRewardCredited;
@@ -77,7 +79,9 @@ class ReferralItem {
 
   ReferralItem({
     required this.id,
+    this.referredName = 'Invited Friend',
     required this.referredMobile,
+    this.referralCode = '',
     required this.status,
     required this.signupRewardCredited,
     required this.firstTxRewardCredited,
@@ -87,7 +91,9 @@ class ReferralItem {
   factory ReferralItem.fromJson(Map<String, dynamic> json) {
     return ReferralItem(
       id: SafeConvert.parseString(json['id']),
+      referredName: SafeConvert.parseString(json['referred_name'], defaultValue: 'Invited Friend'),
       referredMobile: SafeConvert.parseString(json['referred_mobile']),
+      referralCode: SafeConvert.parseString(json['referral_code'], defaultValue: ''),
       status: SafeConvert.parseString(json['status'], defaultValue: 'PENDING'),
       signupRewardCredited: SafeConvert.parseBool(json['signup_reward_credited'], defaultValue: false),
       firstTxRewardCredited: SafeConvert.parseBool(json['first_tx_reward_credited'], defaultValue: false),

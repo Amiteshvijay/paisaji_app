@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:zeokash/features/legal/presentation/screens/legal_policy_detail_screen.dart';
 import 'package:zeokash/features/g_coin_wallet/presentation/screens/g_coin_withdrawal_screen.dart';
 import 'package:zeokash/features/g_coin_wallet/presentation/screens/add_bank_account_screen.dart';
@@ -87,6 +88,7 @@ import 'package:zeokash/features/wallet/presentation/screens/wallet_activity_scr
 import 'package:zeokash/features/wallet/presentation/screens/wallet_limits_screen.dart';
 import 'package:zeokash/features/wallet/presentation/screens/wallet_security_screen.dart';
 import 'package:zeokash/features/wallet/presentation/screens/topup_review_screen.dart';
+import 'package:zeokash/features/wallet/presentation/screens/topup_qr_screen.dart';
 import 'package:zeokash/features/wallet/presentation/screens/submit_evidence_screen.dart';
 import 'package:zeokash/features/wallet/presentation/screens/topup_pending_screen.dart';
 import 'package:zeokash/features/wallet/data/wallet_model.dart';
@@ -96,6 +98,13 @@ import 'package:zeokash/features/payments/presentation/screens/shared/payment_pr
 import 'package:zeokash/features/payments/presentation/screens/shared/payment_success_screen.dart';
 import 'package:zeokash/features/payments/presentation/screens/shared/payment_failed_screen.dart';
 import 'package:zeokash/features/payments/presentation/screens/shared/receipt_screen.dart';
+
+double _parseRouteAmount(dynamic val) {
+  if (val == null) return 0.0;
+  if (val is num) return val.toDouble();
+  return double.tryParse(val.toString()) ?? 0.0;
+}
+
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
@@ -185,6 +194,13 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return _buildRouter(ref: ref, refreshListenable: routerListenable);
 });
+
+String _generatePsjReference() {
+  final now = DateTime.now();
+  final d = '${(now.year % 100).toString().padLeft(2, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+  final r = (Random().nextInt(900) + 100).toString();
+  return 'PSJ$d$r';
+}
 
 final GoRouter appRouter = _buildRouter();
 
@@ -350,6 +366,14 @@ GoRouter _buildRouter({Ref? ref, Listenable? refreshListenable}) => GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
+              path: '/services',
+              builder: (context, state) => const ViewAllServicesScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
               path: '/ai',
               builder: (context, state) => const AiScreen(),
             ),
@@ -368,26 +392,26 @@ GoRouter _buildRouter({Ref? ref, Listenable? refreshListenable}) => GoRouter(
                     final transaction = state.extra as Map<String, dynamic>? ?? {
                       'title': 'Transaction',
                       'date': '12 Aug, 2026',
-                      'amount': 299.0,
-                      'isSuccess': true,
-                      'ref': 'ZK123456789',
-                    };
-                    return TransactionDetailsScreen(transaction: transaction);
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/loan',
-              builder: (context, state) => const LoanScreen(),
-            ),
-          ],
-        ),
-      ],
+                    'amount': 299.0,
+                    'isSuccess': true,
+                    'ref': 'ZK123456789',
+                  };
+                  return TransactionDetailsScreen(transaction: transaction);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: '/loan',
+            builder: (context, state) => const LoanScreen(),
+          ),
+        ],
+      ),
+    ],
     ),
 
     // Home Services & Explore Views
@@ -409,8 +433,7 @@ GoRouter _buildRouter({Ref? ref, Listenable? refreshListenable}) => GoRouter(
     ),
     GoRoute(
       path: '/home/view-all',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const ViewAllServicesScreen(),
+      redirect: (context, state) => '/services',
     ),
     GoRoute(
       path: '/recommendations/explore',
@@ -530,6 +553,14 @@ GoRouter _buildRouter({Ref? ref, Listenable? refreshListenable}) => GoRouter(
       builder: (context, state) {
         final topup = state.extra as WalletTopup;
         return TopupReviewScreen(topup: topup);
+      },
+    ),
+    GoRoute(
+      path: '/wallet/topups/qr',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final topup = state.extra as WalletTopup;
+        return TopupQrScreen(topup: topup);
       },
     ),
     GoRoute(
@@ -718,16 +749,17 @@ GoRouter _buildRouter({Ref? ref, Listenable? refreshListenable}) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>? ?? {};
+        final opName = extra['operatorCode'] as String? ?? extra['operatorName'] as String?;
         return PaymentReviewScreen(
-          title: extra['title'] ?? 'Payment',
-          subtitle: extra['subtitle'] ?? 'Details',
-          amount: (extra['amount'] as num?)?.toDouble() ?? 0.0,
-          baseAmount: (extra['baseAmount'] as num?)?.toDouble(),
-          instantDiscount: (extra['instantDiscount'] as num?)?.toDouble(),
-          zeocoinDiscount: (extra['zeocoinDiscount'] as num?)?.toDouble(),
-          coinsRedeemed: (extra['coinsRedeemed'] as num?)?.toDouble(),
+          title: extra['title'] as String? ?? (opName != null ? 'Mobile Recharge ($opName)' : 'Mobile Recharge'),
+          subtitle: extra['subtitle'] as String? ?? (extra['mobileNumber'] != null ? '+91 ${extra['mobileNumber']}' : 'Bill Details'),
+          amount: _parseRouteAmount(extra['amount']),
+          baseAmount: extra['baseAmount'] != null ? _parseRouteAmount(extra['baseAmount']) : null,
+          instantDiscount: extra['instantDiscount'] != null ? _parseRouteAmount(extra['instantDiscount']) : null,
+          zeocoinDiscount: extra['zeocoinDiscount'] != null ? _parseRouteAmount(extra['zeocoinDiscount']) : null,
+          coinsRedeemed: extra['coinsRedeemed'] != null ? _parseRouteAmount(extra['coinsRedeemed']) : null,
           mobileNumber: extra['mobileNumber'] as String?,
-          operatorCode: extra['operatorCode'] as String?,
+          operatorCode: opName,
           circle: extra['circle'] as String?,
           serviceType: extra['serviceType'] as String?,
         );
@@ -738,15 +770,16 @@ GoRouter _buildRouter({Ref? ref, Listenable? refreshListenable}) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>? ?? {};
+        final opName = extra['operatorCode'] as String? ?? extra['operatorName'] as String?;
         return PaymentProcessingScreen(
-          title: extra['title'] ?? 'Payment',
-          amount: (extra['amount'] as num?)?.toDouble() ?? 500.0,
-          coinsRedeemed: (extra['coinsRedeemed'] as num?)?.toDouble(),
-          baseAmount: (extra['baseAmount'] as num?)?.toDouble(),
-          instantDiscount: (extra['instantDiscount'] as num?)?.toDouble(),
-          zeocoinDiscount: (extra['zeocoinDiscount'] as num?)?.toDouble(),
+          title: extra['title'] as String? ?? (opName != null ? 'Mobile Recharge ($opName)' : 'Mobile Recharge'),
+          amount: _parseRouteAmount(extra['amount']),
+          coinsRedeemed: extra['coinsRedeemed'] != null ? _parseRouteAmount(extra['coinsRedeemed']) : null,
+          baseAmount: extra['baseAmount'] != null ? _parseRouteAmount(extra['baseAmount']) : null,
+          instantDiscount: extra['instantDiscount'] != null ? _parseRouteAmount(extra['instantDiscount']) : null,
+          zeocoinDiscount: extra['zeocoinDiscount'] != null ? _parseRouteAmount(extra['zeocoinDiscount']) : null,
           mobileNumber: extra['mobileNumber'] as String?,
-          operatorCode: extra['operatorCode'] as String?,
+          operatorCode: opName,
           circle: extra['circle'] as String?,
           serviceType: extra['serviceType'] as String?,
         );
@@ -757,13 +790,19 @@ GoRouter _buildRouter({Ref? ref, Listenable? refreshListenable}) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>? ?? {};
+        final opName = extra['operatorName'] as String? ?? extra['operatorCode'] as String?;
+        final refId = extra['reference']?.toString() ?? _generatePsjReference();
         return PaymentSuccessScreen(
-          title: extra['title'] ?? 'Payment',
-          amount: (extra['amount'] as num?)?.toDouble() ?? 500.0,
-          reference: extra['reference'] ?? 'ZK',
-          operatorName: extra['operatorName'],
-          mobileNumber: extra['mobileNumber'],
-          scratchCardId: extra['scratchCardId'],
+          title: extra['title'] as String? ?? (opName != null ? '$opName Recharge' : 'Mobile Recharge'),
+          amount: _parseRouteAmount(extra['amount']),
+          reference: refId,
+          operatorName: opName,
+          mobileNumber: extra['mobileNumber'] as String?,
+          scratchCardId: extra['scratchCardId'] as String?,
+          coinsRedeemed: extra['coinsRedeemed'] != null ? _parseRouteAmount(extra['coinsRedeemed']) : null,
+          baseAmount: extra['baseAmount'] != null ? _parseRouteAmount(extra['baseAmount']) : null,
+          instantDiscount: extra['instantDiscount'] != null ? _parseRouteAmount(extra['instantDiscount']) : null,
+          gCoinDiscount: extra['gCoinDiscount'] != null ? _parseRouteAmount(extra['gCoinDiscount']) : (extra['zeocoinDiscount'] != null ? _parseRouteAmount(extra['zeocoinDiscount']) : null),
         );
       },
     ),
@@ -783,10 +822,30 @@ GoRouter _buildRouter({Ref? ref, Listenable? refreshListenable}) => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>? ?? {};
+        final opName = extra['operatorName'] as String? ?? extra['operatorCode'] as String?;
+        final defaultTitle = opName != null ? '$opName Recharge' : 'Mobile Recharge';
+        final rawTitle = extra['title']?.toString();
+        final isRawLedgerTitle = rawTitle != null && (rawTitle.contains('for MOBILE_RECHARGE') || rawTitle.startsWith('Wallet spend'));
+        final title = (rawTitle != null && rawTitle.isNotEmpty && !isRawLedgerTitle && rawTitle != 'Payment') ? rawTitle : defaultTitle;
+        final ref = extra['reference']?.toString() ?? extra['ref']?.toString() ?? _generatePsjReference();
+        final amt = _parseRouteAmount(extra['amount']);
         return ReceiptScreen(
-          title: extra['title'] ?? 'Payment',
-          amount: (extra['amount'] is num) ? (extra['amount'] as num).toDouble() : double.tryParse(extra['amount']?.toString() ?? '') ?? 0.0,
-          reference: extra['reference'] ?? 'ZK12345678',
+          title: title,
+          amount: amt,
+          reference: ref,
+          date: extra['date']?.toString() ?? extra['timestamp']?.toString(),
+          paymentMode: extra['paymentMode']?.toString() ?? extra['payment_method']?.toString(),
+          merchant: extra['merchant']?.toString() ?? (opName != null ? '$opName Gateway' : null),
+          status: extra['status']?.toString(),
+          userName: extra['userName']?.toString(),
+          userMobile: extra['userMobile']?.toString(),
+          operatorName: opName,
+          circle: extra['circle']?.toString(),
+          planName: extra['planName']?.toString(),
+          mobileNumber: extra['mobileNumber']?.toString(),
+          baseAmount: extra['baseAmount'] != null ? _parseRouteAmount(extra['baseAmount']) : null,
+          instantDiscount: extra['instantDiscount'] != null ? _parseRouteAmount(extra['instantDiscount']) : null,
+          gCoinDiscount: extra['gCoinDiscount'] != null ? _parseRouteAmount(extra['gCoinDiscount']) : (extra['zeocoinDiscount'] != null ? _parseRouteAmount(extra['zeocoinDiscount']) : null),
         );
       },
     ),

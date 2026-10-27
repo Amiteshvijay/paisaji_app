@@ -536,8 +536,10 @@ class _RechargePlansScreenState extends ConsumerState<RechargePlansScreen> {
                           'subtitle': displayName,
                           'amount': amountVal,
                           'plan_selection_id': selectionId,
-                          'operator_code': ref.read(rechargeStateProvider).operatorCode,
+                          'operatorCode': ref.read(rechargeStateProvider).operatorCode,
                           'circle': ref.read(rechargeStateProvider).circle,
+                          'mobileNumber': widget.mobileNumber,
+                          'baseAmount': amountVal,
                         });
                       },
                       style: ElevatedButton.styleFrom(
