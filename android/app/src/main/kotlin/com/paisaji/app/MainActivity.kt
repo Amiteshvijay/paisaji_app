@@ -1,10 +1,8 @@
 package com.paisaji.app
 
 import android.app.Activity
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.hardware.fingerprint.FingerprintManager
 import android.net.Uri
@@ -18,8 +16,6 @@ import android.util.Base64
 import androidx.annotation.NonNull
 import androidx.biometric.BiometricManager
 import com.google.android.gms.auth.api.phone.SmsRetriever
-import com.google.android.gms.common.api.CommonStatusCodes
-import com.google.android.gms.common.api.Status
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -31,9 +27,8 @@ import java.security.PrivateKey
 import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 import java.util.Arrays
-import java.util.regex.Pattern
 
-class MainActivity : FlutterFragmentActivity() {
+class MainActivity : FlutterFragmentActivity(), SmsBroadcastReceiver.SmsListener {
     private val CHANNEL_PAISAJI = "com.paisaji.app/device_keystore"
     private val CHANNEL_LEGACY = "com.zeokash.zeokash/device_keystore"
     private val CONTACTS_CHANNEL = "com.paisaji.app/contacts"
@@ -44,9 +39,8 @@ class MainActivity : FlutterFragmentActivity() {
     private val SMS_CONSENT_REQUEST = 2003
     private var pendingContactResult: MethodChannel.Result? = null
 
-    // Channel for Flutter communication
+    // Channel for Flutter SMS Retriever communication
     private var smsMethodChannel: MethodChannel? = null
-    private var smsReceiver: BroadcastReceiver? = null
     private var isListeningSms = false
 
     @Suppress("DEPRECATION")
@@ -258,90 +252,59 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     /**
-     * Starts official Google SMS Retriever client and registers broadcast receiver
+     * Starts official Google SMS Retriever client and attaches listener to SmsBroadcastReceiver
      * with SMS User Consent API fallback.
      */
     private fun startSmsRetrieverAndConsent(senderNumber: String?) {
         stopSmsListening()
+        SmsBroadcastReceiver.listener = this
+
+        val retrieverClient = SmsRetriever.getClient(this)
 
         // 1. Start SMS Retriever Client (Automatic, zero user interaction if hash matches)
-        val retrieverClient = SmsRetriever.getClient(this)
         retrieverClient.startSmsRetriever()
             .addOnSuccessListener {
-                // SMS Retriever started
-            }
-            .addOnFailureListener {
-                // Fallback can still trigger
-            }
-
-        // 2. Start SMS User Consent Client (For standard/DLT SMS without hash)
-        retrieverClient.startSmsUserConsent(senderNumber)
-            .addOnSuccessListener {
-                // User Consent listener active
+                // SMS Retriever active
             }
             .addOnFailureListener {
                 // Handled gracefully
             }
 
-        // 3. Register Receiver for SMS Retriever & Consent Broadcasts
-        smsReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent == null) return
-                val action = intent.action
-
-                if (SmsRetriever.SMS_RETRIEVED_ACTION == action) {
-                    val extras: Bundle? = intent.extras
-                    val status = extras?.get(SmsRetriever.EXTRA_STATUS) as? Status
-                    when (status?.statusCode) {
-                        CommonStatusCodes.SUCCESS -> {
-                            // First try: Direct SMS message content (SMS Retriever API)
-                            val message = extras.getString(SmsRetriever.EXTRA_SMS_MESSAGE)
-                            if (!message.isNullOrEmpty()) {
-                                extractAndDispatchOtp(message)
-                            } else {
-                                // Second try: User Consent Intent (Requires user click in system dialog)
-                                val consentIntent = extras.getParcelable<Intent>(SmsRetriever.EXTRA_CONSENT_INTENT)
-                                if (consentIntent != null) {
-                                    try {
-                                        startActivityForResult(consentIntent, SMS_CONSENT_REQUEST)
-                                    } catch (_: Exception) {}
-                                }
-                            }
-                        }
-                        CommonStatusCodes.TIMEOUT -> {
-                            smsMethodChannel?.invokeMethod("onTimeout", null)
-                        }
-                    }
-                }
+        // 2. Start SMS User Consent Client (For standard/DLT SMS without hash)
+        retrieverClient.startSmsUserConsent(senderNumber)
+            .addOnSuccessListener {
+                // User Consent active
             }
-        }
+            .addOnFailureListener {
+                // Handled gracefully
+            }
 
-        val intentFilter = IntentFilter(SmsRetriever.SMS_RETRIEVED_ACTION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(smsReceiver, intentFilter, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(smsReceiver, intentFilter)
-        }
         isListeningSms = true
     }
 
-    private fun extractAndDispatchOtp(message: String) {
-        val pattern = Pattern.compile("\b(\d{6})\b")
-        val matcher = pattern.matcher(message)
-        if (matcher.find()) {
-            val otp = matcher.group(1)
-            runOnUiThread {
-                smsMethodChannel?.invokeMethod("onOtpReceived", otp)
-            }
+    override fun onOtpReceived(otp: String) {
+        runOnUiThread {
+            smsMethodChannel?.invokeMethod("onOtpReceived", otp)
+        }
+    }
+
+    override fun onConsentIntent(intent: Intent) {
+        runOnUiThread {
+            try {
+                startActivityForResult(intent, SMS_CONSENT_REQUEST)
+            } catch (_: Exception) {}
+        }
+    }
+
+    override fun onTimeout() {
+        runOnUiThread {
+            smsMethodChannel?.invokeMethod("onTimeout", null)
         }
     }
 
     private fun stopSmsListening() {
-        if (isListeningSms && smsReceiver != null) {
-            try {
-                unregisterReceiver(smsReceiver)
-            } catch (_: Exception) {}
-            smsReceiver = null
+        if (isListeningSms) {
+            SmsBroadcastReceiver.listener = null
             isListeningSms = false
         }
     }
@@ -406,10 +369,16 @@ class MainActivity : FlutterFragmentActivity() {
             if (resultCode == Activity.RESULT_OK && data != null) {
                 val message = data.getStringExtra(SmsRetriever.EXTRA_SMS_MESSAGE)
                 if (!message.isNullOrEmpty()) {
-                    extractAndDispatchOtp(message)
+                    val pattern = java.util.regex.Pattern.compile("\\b(\\d{6})\\b")
+                    val matcher = pattern.matcher(message)
+                    if (matcher.find()) {
+                        val otp = matcher.group(1)
+                        if (otp != null) {
+                            onOtpReceived(otp)
+                        }
+                    }
                 }
             } else {
-                // User denied or dismissed consent dialog: quietly proceed without throwing error
                 smsMethodChannel?.invokeMethod("onConsentDenied", null)
             }
             return

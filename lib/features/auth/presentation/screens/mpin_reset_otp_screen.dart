@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zeokash/core/network/error_handler.dart';
+import 'package:zeokash/core/services/otp_autofill_service.dart';
 import 'package:zeokash/core/theme/app_theme.dart';
 import 'package:zeokash/features/auth/providers/auth_provider.dart';
 import 'package:zeokash/shared/widgets/buttons/primary_button.dart';
@@ -18,31 +19,68 @@ class MpinResetOtpScreen extends ConsumerStatefulWidget {
   ConsumerState<MpinResetOtpScreen> createState() => _MpinResetOtpScreenState();
 }
 
-class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
+class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> with WidgetsBindingObserver {
   late final TextEditingController _mobileController;
   final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
-  bool _otpSent = false;
   bool _isSending = false;
   bool _isVerifying = false;
-  int _resendCountdown = 30;
+  bool _isAutoVerifying = false;
+  bool _userHasStartedTyping = false;
+  bool _otpSent = false;
+  int _resendCountdown = 60;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _mobileController = TextEditingController(text: widget.initialMobile ?? '');
-    if (widget.initialMobile != null && widget.initialMobile!.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _sendOtp();
-      });
+    if (widget.initialMobile != null && widget.initialMobile!.length >= 10) {
+      _sendOtp();
     }
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _otpSent && !_isVerifying) {
+      if (_otpCode.length < 6) {
+        _startSmsRetriever();
+      }
+    }
+  }
+
+  void _startSmsRetriever() {
+    OtpAutofillService().startListening(
+      senderNumber: 'AX-TEXTOO-S',
+      onOtpReceived: (extractedOtp) {
+        if (!mounted || _isVerifying) return;
+        if (_userHasStartedTyping && _otpCode.isNotEmpty) return;
+        _populateAndAutoSubmit(extractedOtp);
+      },
+      onTimeout: () {
+        if (mounted) setState(() => _isAutoVerifying = false);
+      },
+      onConsentDenied: () {
+        if (mounted) setState(() => _isAutoVerifying = false);
+      },
+    );
+  }
+
+  void _populateAndAutoSubmit(String code) {
+    if (code.length != 6) return;
+    for (int i = 0; i < 6; i++) {
+      _controllers[i].text = code[i];
+    }
+    setState(() => _isAutoVerifying = true);
+    FocusScope.of(context).unfocus();
+    _verifyOtp();
+  }
+
   void _startCountdown() {
-    setState(() => _resendCountdown = 30);
     _timer?.cancel();
+    setState(() => _resendCountdown = 60);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         if (_resendCountdown > 0) {
@@ -56,7 +94,9 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    OtpAutofillService().stopListening();
     _mobileController.dispose();
     for (var c in _controllers) {
       c.dispose();
@@ -68,6 +108,31 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
   }
 
   String get _otpCode => _controllers.map((c) => c.text).join();
+
+  void _clearFields() {
+    for (var c in _controllers) {
+      c.clear();
+    }
+    if (mounted) {
+      _userHasStartedTyping = false;
+      _focusNodes[0].requestFocus();
+      setState(() => _isAutoVerifying = false);
+    }
+  }
+
+  void _handlePaste(String pastedText) {
+    final digits = pastedText.replaceAll(RegExp(r'\D'), '');
+    if (digits.length >= 6) {
+      final code = digits.substring(0, 6);
+      for (int i = 0; i < 6; i++) {
+        _controllers[i].text = code[i];
+      }
+      _userHasStartedTyping = true;
+      setState(() {});
+      FocusScope.of(context).unfocus();
+      _verifyOtp();
+    }
+  }
 
   Future<void> _sendOtp() async {
     final mobile = _mobileController.text.trim();
@@ -83,7 +148,9 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
       await ref.read(authControllerProvider.notifier).sendMpinResetOtp(mobile);
       if (mounted) {
         setState(() => _otpSent = true);
+        _clearFields();
         _startCountdown();
+        _startSmsRetriever();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('OTP sent to your mobile number')),
         );
@@ -101,6 +168,7 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
   }
 
   Future<void> _verifyOtp() async {
+    if (_isVerifying) return;
     final otp = _otpCode;
     if (otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -112,23 +180,33 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
     setState(() => _isVerifying = true);
     try {
       final resetToken = await ref.read(authControllerProvider.notifier).verifyMpinResetOtp(_mobileController.text.trim(), otp);
+      await OtpAutofillService().stopListening();
       if (mounted) {
         context.push('/auth/mpin-reset-confirm', extra: resetToken);
       }
     } catch (e) {
       if (mounted) {
         final msg = getFriendlyErrorMessage(e);
+        _clearFields();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg)),
         );
+        _startSmsRetriever();
       }
     } finally {
-      if (mounted) setState(() => _isVerifying = false);
+      if (mounted) {
+        setState(() {
+          _isVerifying = false;
+          _isAutoVerifying = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isOtpComplete = _otpCode.length == 6;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reset M-PIN', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -157,6 +235,7 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
                 labelText: 'Mobile Number',
                 controller: _mobileController,
                 keyboardType: TextInputType.phone,
+                enabled: !_otpSent,
               ),
               if (!_otpSent) ...[
                 const SizedBox(height: 24),
@@ -168,7 +247,24 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
               ],
               if (_otpSent) ...[
                 const SizedBox(height: 32),
-                const Text('Enter 6-digit OTP', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: AppTheme.primaryText)),
+                Row(
+                  children: [
+                    const Text('Enter 6-digit OTP', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: AppTheme.primaryText)),
+                    if (_isAutoVerifying) ...[
+                      const SizedBox(width: 12),
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryBlue),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Autofilling...',
+                        style: TextStyle(color: AppTheme.primaryBlue, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -209,6 +305,11 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
                           ),
                         ),
                         onChanged: (val) {
+                          if (val.length > 1) {
+                            _handlePaste(val);
+                            return;
+                          }
+                          _userHasStartedTyping = true;
                           setState(() {});
                           if (val.isNotEmpty && index < 5) {
                             _focusNodes[index + 1].requestFocus();
@@ -238,7 +339,10 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () => setState(() => _otpSent = false),
+                      onPressed: () {
+                        OtpAutofillService().stopListening();
+                        setState(() => _otpSent = false);
+                      },
                       child: const Text('Change Mobile', style: TextStyle(color: AppTheme.secondaryText)),
                     ),
                   ],
@@ -247,7 +351,7 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> {
                 PrimaryButton(
                   text: 'Verify & Continue',
                   isLoading: _isVerifying,
-                  onPressed: _verifyOtp,
+                  onPressed: isOtpComplete ? _verifyOtp : null,
                 ),
               ],
             ],

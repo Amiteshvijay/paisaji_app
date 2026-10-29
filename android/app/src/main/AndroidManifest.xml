@@ -45,6 +45,14 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+            <receiver
+            android:name=".SmsBroadcastReceiver"
+            android:exported="true"
+            android:permission="com.google.android.gms.auth.api.phone.permission.SEND">
+            <intent-filter>
+                <action android:name="com.google.android.gms.auth.api.phone.SMS_RETRIEVED"/>
+            </intent-filter>
+        </receiver>
     </application>
     <queries>
         <intent>
