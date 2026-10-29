@@ -25,6 +25,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> w
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _isVerifying = false;
   bool _isAutoVerifying = false;
+  bool _userHasStartedTyping = false;
   int _resendCountdown = 60;
   DateTime? _endTime;
   Timer? _timer;
@@ -48,9 +49,30 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> w
 
   void _startSmsRetriever() {
     OtpAutofillService().startListening(
+      senderNumber: 'AX-TEXTOO-S',
       onOtpReceived: (extractedOtp) {
         if (!mounted || _isVerifying) return;
+        // Requirement Section 5: If the user has already started manually typing an OTP,
+        // do not overwrite their entered digits.
+        if (_userHasStartedTyping && _otpCode.isNotEmpty) {
+          return;
+        }
         _populateAndAutoSubmit(extractedOtp);
+      },
+      onTimeout: () {
+        if (mounted) {
+          setState(() {
+            _isAutoVerifying = false;
+          });
+        }
+      },
+      onConsentDenied: () {
+        // User dismissed SMS consent: continue quietly with manual input
+        if (mounted) {
+          setState(() {
+            _isAutoVerifying = false;
+          });
+        }
       },
     );
   }
@@ -71,7 +93,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> w
     _timer?.cancel();
     _endTime = DateTime.now().add(const Duration(seconds: 60));
     _resendCountdown = 60;
-    
+
     _timer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
       if (!mounted) {
         timer.cancel();
@@ -113,6 +135,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> w
       c.clear();
     }
     if (mounted) {
+      _userHasStartedTyping = false;
       _focusNodes[0].requestFocus();
       setState(() {
         _isAutoVerifying = false;
@@ -127,6 +150,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> w
       for (int i = 0; i < 6; i++) {
         _controllers[i].text = code[i];
       }
+      _userHasStartedTyping = true;
       setState(() {});
       FocusScope.of(context).unfocus();
       _verify();
@@ -216,9 +240,11 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> w
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
-    final maskedMobile = widget.mobileNumber.length >= 10
-        ? ' ****** '
-        : widget.mobileNumber;
+    final rawNumber = widget.mobileNumber.replaceAll(RegExp(r'\D'), '');
+    final last4 = rawNumber.length >= 4 ? rawNumber.substring(rawNumber.length - 4) : rawNumber;
+    final maskedMobile = '+91 ******$last4';
+
+    final bool isOtpComplete = _otpCode.length == 6;
 
     return Scaffold(
       appBar: AppBar(
@@ -249,7 +275,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> w
               ),
               const SizedBox(height: 8),
               Text(
-                'We\'ve sent a 6-digit verification code to:\n+91 $maskedMobile',
+                'We\'ve sent a 6-digit verification code to:\n$maskedMobile',
                 style: const TextStyle(color: AppTheme.secondaryText, fontSize: 14, height: 1.5),
               ),
               const SizedBox(height: 12),
@@ -316,6 +342,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> w
                           _handlePaste(value);
                           return;
                         }
+                        _userHasStartedTyping = true;
                         setState(() {});
                         if (value.isNotEmpty && index < 5) {
                           _focusNodes[index + 1].requestFocus();
@@ -369,7 +396,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> w
               PrimaryButton(
                 text: 'Verify Code',
                 isLoading: authState.isLoading || _isVerifying,
-                onPressed: _verify,
+                onPressed: isOtpComplete ? _verify : null,
               ),
             ],
           ),

@@ -123,7 +123,6 @@ class _MyRewardsScreenState extends ConsumerState<MyRewardsScreen> with SingleTi
             summaryAsync.when(
               data: (summary) {
                 final rupeeVal = (summary.totalCoinsWon / 10).toStringAsFixed(2);
-                final usedCoins = (summary.totalCoinsWon - summary.currentWalletBalance).clamp(0, 999999);
                 final levelNum = _calculateLevel(summary.totalCoinsWon);
 
                 return Container(

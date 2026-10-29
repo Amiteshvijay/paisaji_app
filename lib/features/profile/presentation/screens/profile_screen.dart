@@ -293,7 +293,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         data: (profileData) {
           final profileObj = profileData['profile'] ?? {};
-          final fullName = profileObj['full_name'] ?? 'Paisaजी User';
+          final rawFullName = profileObj['full_name'] ?? profileData['full_name'] ?? '';
+          final userMobile = profileData['mobile_number'] ?? profileObj['mobile_number'] ?? '';
+          final fullName = (rawFullName.toString().trim().isNotEmpty && rawFullName != 'User' && rawFullName != 'Paisaजी User')
+              ? rawFullName.toString().trim()
+              : (userMobile.toString().trim().isNotEmpty ? userMobile.toString().trim() : 'Paisaजी User');
           final photoUrl = profileObj['profile_photo'];
 
           final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U';

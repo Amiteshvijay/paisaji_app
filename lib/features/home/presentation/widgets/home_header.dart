@@ -35,10 +35,15 @@ class _HomeHeaderState extends ConsumerState<HomeHeader> {
     try {
       final storage = ref.read(secureStorageProvider);
       final name = await storage.getFullName();
-      if (name != null && name.isNotEmpty && name != 'Valued Customer') {
-        if (mounted) {
+      final mobile = await storage.getLastMobileNumber();
+      if (mounted) {
+        if (name != null && name.trim().isNotEmpty && name != 'Valued Customer' && name != 'User') {
           setState(() {
             _cachedFirstName = name.split(' ').first;
+          });
+        } else if (mobile != null && mobile.trim().isNotEmpty) {
+          setState(() {
+            _cachedFirstName = mobile.trim();
           });
         }
       }
@@ -49,8 +54,12 @@ class _HomeHeaderState extends ConsumerState<HomeHeader> {
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(profileDataProvider);
     final profileData = profileAsync.asData?.value ?? {};
-    final fullName = profileData['profile']?['full_name'] ?? profileData['full_name'] ?? '';
-    final firstName = fullName.isNotEmpty ? fullName.split(' ').first : _cachedFirstName;
+    final rawName = profileData['profile']?['full_name'] ?? profileData['full_name'] ?? '';
+    final mobileNumber = profileData['mobile_number'] ?? profileData['profile']?['mobile_number'] ?? '';
+    final displayName = (rawName.toString().trim().isNotEmpty && rawName != 'User' && rawName != 'Paisaजी User')
+        ? rawName.toString().trim()
+        : (mobileNumber.toString().trim().isNotEmpty ? mobileNumber.toString().trim() : _cachedFirstName);
+    final firstName = displayName.split(' ').first;
     final photoUrl = profileData['profile']?['profile_photo'] ?? profileData['profile_photo'];
 
     final walletAsync = ref.watch(zeocoinWalletProvider);

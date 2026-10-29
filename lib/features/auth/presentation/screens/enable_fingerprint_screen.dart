@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -47,8 +48,20 @@ class _EnableFingerprintScreenState extends ConsumerState<EnableFingerprintScree
       }
     } catch (e) {
       if (mounted) {
+        String msg = 'Failed to enable fingerprint unlock. Please check your MPIN and try again.';
+        if (e is DioException) {
+          final resData = e.response?.data;
+          if (resData is Map) {
+            msg = resData['error']?['message'] ?? resData['message'] ?? resData['detail'] ?? msg;
+          }
+        } else {
+          final raw = e.toString().replaceAll('Exception: ', '').trim();
+          if (!raw.contains('validateStatus') && !raw.contains('status code of 400')) {
+            msg = raw;
+          }
+        }
         setState(() {
-          _errorMessage = e.toString().replaceAll('Exception: ', '').trim();
+          _errorMessage = msg;
         });
       }
     } finally {
