@@ -235,7 +235,6 @@ class _MpinResetOtpScreenState extends ConsumerState<MpinResetOtpScreen> with Wi
                 labelText: 'Mobile Number',
                 controller: _mobileController,
                 keyboardType: TextInputType.phone,
-                enabled: !_otpSent,
               ),
               if (!_otpSent) ...[
                 const SizedBox(height: 24),
